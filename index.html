@@ -1,0 +1,1763 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>cost.spice - คำนวณต้นทุนร้านอาหาร</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4CAF50;
+      --primary-dark: #388E3C;
+      --primary-light: #C8E6C9;
+      --accent: #FF6B35;
+      --accent-light: #FFE0D0;
+      --bg: #F4F6F4;
+      --card: #FFFFFF;
+      --text: #1F2937;
+      --text-light: #6B7280;
+      --border: #E5E7EB;
+      --danger: #EF4444;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --purple: #8B5CF6;
+      --radius: 14px;
+      --shadow: 0 1px 6px rgba(0,0,0,0.07), 0 2px 12px rgba(0,0,0,0.05);
+      --shadow-lg: 0 4px 20px rgba(0,0,0,0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── HEADER ── */
+    .app-header {
+      background: linear-gradient(135deg, #43A047, #2E7D32);
+      color: white;
+      padding: 14px 20px 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    }
+    .header-content {
+      max-width: 620px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo { font-size: 21px; font-weight: 800; letter-spacing: -0.3px; }
+    .logo .accent { color: #FFD54F; }
+    .header-sub { margin-left: auto; font-size: 12px; opacity: 0.82; }
+    .currency-toggle {
+      display: flex;
+      background: rgba(255,255,255,0.18);
+      border-radius: 20px;
+      padding: 2px;
+      gap: 2px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .currency-btn {
+      padding: 4px 10px;
+      border-radius: 16px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.75);
+      font-family: 'Sarabun', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s;
+      letter-spacing: 0.3px;
+    }
+    .currency-btn.active {
+      background: white;
+      color: #1B5E20;
+    }
+
+    /* ── BOTTOM NAV ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 100;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.07);
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 4px 6px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-light);
+      font-family: 'Sarabun', sans-serif;
+      font-size: 10.5px;
+      gap: 3px;
+      transition: color 0.2s;
+    }
+    .nav-item.active { color: var(--primary); }
+    .nav-icon { font-size: 22px; line-height: 1; }
+
+    /* ── MAIN ── */
+    .main {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 16px 14px 88px;
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text);
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      padding: 10px 18px;
+      border-radius: 9px;
+      border: none;
+      cursor: pointer;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      letter-spacing: 0.1px;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-accent { background: var(--accent); color: white; }
+    .btn-accent:hover { background: #e55a28; }
+    .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-ghost { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: #e9ece9; }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 7px; }
+    .btn-lg { padding: 13px 24px; font-size: 16px; border-radius: 11px; }
+
+    /* ── FORMS ── */
+    .form-group { margin-bottom: 13px; }
+    .form-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-light);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 9px;
+      font-family: 'Sarabun', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      background: white;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(76,175,80,0.15);
+    }
+    .input-row { display: flex; gap: 8px; }
+    .input-row .form-group { flex: 1; }
+    select.form-control {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236B7280' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 13px center;
+      padding-right: 34px;
+    }
+
+    /* ── STEP INDICATOR ── */
+    .steps {
+      display: flex;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .step-circle {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--text-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      transition: all 0.3s;
+    }
+    .step.active .step-circle { background: var(--primary); color: white; box-shadow: 0 0 0 4px rgba(76,175,80,0.2); }
+    .step.done .step-circle { background: var(--success); color: white; }
+    .step-label { font-size: 9.5px; color: var(--text-light); white-space: nowrap; }
+    .step.active .step-label { color: var(--primary); font-weight: 600; }
+    .step.done .step-label { color: var(--success); }
+    .step-connector {
+      flex: 1;
+      height: 2px;
+      background: var(--border);
+      margin-bottom: 14px;
+      transition: background 0.3s;
+    }
+    .step-connector.done { background: var(--success); }
+
+    /* ── INGREDIENT ROWS ── */
+    .item-row {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 11px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .item-row-body { flex: 1; min-width: 0; }
+    .item-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-sub { font-size: 11.5px; color: var(--text-light); margin-top: 1px; }
+    .item-cost { text-align: right; flex-shrink: 0; }
+    .item-cost-value { font-weight: 700; font-size: 14px; color: var(--primary); }
+    .item-cost-sub { font-size: 10.5px; color: var(--text-light); }
+    .remove-btn {
+      background: none; border: none;
+      color: #CBD5E1; cursor: pointer;
+      font-size: 17px; padding: 3px;
+      transition: color 0.2s; flex-shrink: 0;
+    }
+    .remove-btn:hover { color: var(--danger); }
+
+    /* ── RESULTS ── */
+    .result-hero {
+      background: linear-gradient(135deg, #43A047, #2E7D32);
+      border-radius: var(--radius);
+      padding: 22px 20px;
+      color: white;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .result-hero-label { font-size: 13px; opacity: 0.85; }
+    .result-hero-value { font-size: 42px; font-weight: 800; margin: 4px 0; letter-spacing: -1px; }
+    .result-hero-sub { font-size: 12.5px; opacity: 0.75; }
+
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 12px;
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
+    .breakdown-row:last-child { margin-bottom: 0; }
+    .breakdown-label { font-size: 13.5px; }
+    .breakdown-value { font-weight: 700; font-size: 13.5px; }
+
+    /* ── PRICE CARDS ── */
+    .price-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .price-card {
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.18s;
+      background: white;
+    }
+    .price-card:hover { border-color: var(--accent); background: var(--accent-light); }
+    .price-card.selected { border-color: var(--accent); background: var(--accent-light); }
+    .price-margin { font-size: 10.5px; color: var(--text-light); margin-bottom: 3px; }
+    .price-value { font-size: 17px; font-weight: 800; color: var(--accent); }
+    .price-profit { font-size: 10.5px; color: var(--success); margin-top: 2px; }
+
+    /* ── RECIPE CARDS ── */
+    .recipe-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 13px 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 9px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      cursor: pointer;
+      transition: box-shadow 0.18s;
+    }
+    .recipe-card:hover { box-shadow: var(--shadow-lg); }
+    .recipe-emoji {
+      width: 46px; height: 46px;
+      border-radius: 12px;
+      background: var(--primary-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .recipe-info { flex: 1; min-width: 0; }
+    .recipe-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .recipe-meta { font-size: 11.5px; color: var(--text-light); margin-top: 2px; }
+    .recipe-right { text-align: right; flex-shrink: 0; }
+    .recipe-cost { font-weight: 800; color: var(--primary); font-size: 15px; }
+    .recipe-per { font-size: 10.5px; color: var(--text-light); }
+
+    /* ── STATS GRID ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .stat-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 14px 12px;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+    .stat-emoji { font-size: 26px; margin-bottom: 5px; }
+    .stat-value { font-size: 20px; font-weight: 800; color: var(--primary); line-height: 1; }
+    .stat-label { font-size: 11px; color: var(--text-light); margin-top: 3px; }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      background: var(--bg);
+      border-radius: 9px;
+      padding: 3px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+    }
+    .tab {
+      flex: 1;
+      padding: 7px 4px;
+      text-align: center;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 12.5px;
+      font-weight: 600;
+      border: none;
+      background: none;
+      font-family: 'Sarabun', sans-serif;
+      color: var(--text-light);
+      transition: all 0.18s;
+    }
+    .tab.active { background: white; color: var(--primary); box-shadow: var(--shadow); }
+
+    /* ── BADGE ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+    .badge-green { background: #D1FAE5; color: #065F46; }
+    .badge-orange { background: #FEF3C7; color: #92400E; }
+    .badge-red { background: #FEE2E2; color: #991B1B; }
+
+    /* ── PROGRESS ── */
+    .progress-bar { height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 300;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .modal {
+      background: white;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 18px;
+      width: 100%; max-width: 620px;
+      max-height: 88vh;
+      overflow-y: auto;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-title { font-size: 18px; font-weight: 700; }
+    .close-btn {
+      background: var(--bg); border: none;
+      width: 32px; height: 32px; border-radius: 50%;
+      cursor: pointer; font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-light);
+    }
+
+    /* ── CHART ── */
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 140px;
+      padding: 0 4px;
+    }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+    .bar { width: 100%; border-radius: 5px 5px 0 0; min-height: 5px; transition: height 0.6s ease; }
+    .bar-name { font-size: 9px; color: var(--text-light); text-align: center; max-width: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 80px; left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: #1F2937;
+      color: white;
+      padding: 9px 20px;
+      border-radius: 24px;
+      font-size: 13.5px;
+      font-weight: 500;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.22s, transform 0.22s;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── PROFIT INDICATORS ── */
+    .profit-pill {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 13px; border-radius: 9px; margin-top: 8px;
+      font-size: 13px; font-weight: 600;
+    }
+    .profit-pill.great { background: #D1FAE5; color: #065F46; }
+    .profit-pill.ok { background: #FEF3C7; color: #78350F; }
+    .profit-pill.low { background: #FEE2E2; color: #991B1B; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state { text-align: center; padding: 36px 16px; }
+    .empty-icon { font-size: 46px; margin-bottom: 10px; }
+    .empty-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .empty-desc { font-size: 13px; color: var(--text-light); }
+
+    /* ── UTILITIES ── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 13px 0; }
+    .section-title { font-size: 11px; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 9px; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .mt-1 { margin-top: 4px; }
+    .mt-2 { margin-top: 8px; }
+    .mt-3 { margin-top: 12px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-3 { margin-bottom: 12px; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 8px; }
+    .font-bold { font-weight: 700; }
+    .text-sm { font-size: 13px; }
+    .text-xs { font-size: 11px; }
+    .text-green { color: var(--primary); }
+    .text-orange { color: var(--accent); }
+    .text-red { color: var(--danger); }
+    .text-muted { color: var(--text-light); }
+    .bg-light { background: var(--bg); }
+    .rounded { border-radius: 9px; }
+    .p-3 { padding: 12px; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeUp 0.28s ease forwards; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════ -->
+<header class="app-header">
+  <div class="header-content">
+    <span style="font-size:22px">🍳</span>
+    <div class="logo">cost<span class="accent">.spice</span></div>
+    <div class="currency-toggle">
+      <button class="currency-btn active" id="btn-thb" onclick="setCurrency('THB')">฿ THB</button>
+      <button class="currency-btn" id="btn-aud" onclick="setCurrency('AUD')">$ AUD</button>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════
+     MAIN CONTENT
+═══════════════════════════════════════════════════ -->
+<div class="main">
+
+  <!-- ─── PAGE: HOME ─── -->
+  <div id="page-home" class="page active">
+    <!-- Hero -->
+    <div class="card fade-in" style="background:linear-gradient(135deg,#43A047,#1B5E20);color:white;padding:20px;">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <div style="font-size:44px;line-height:1">🍳</div>
+        <div>
+          <div style="font-size:20px;font-weight:800">สวัสดี! 👋</div>
+          <div style="font-size:13px;opacity:0.85;margin-top:2px">คำนวณต้นทุนวันนี้กันเถอะ</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-full" style="background:white;color:#1B5E20;font-weight:800;font-size:15px;" onclick="showPage('calculator')">
+          ➕ คำนวณต้นทุนใหม่
+        </button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;white-space:nowrap" onclick="loadSamples()">
+          📦 ตัวอย่าง
+        </button>
+      </div>
+    </div>
+
+    <!-- AUD rate row (shown only when AUD is active) -->
+    <div id="aud-rate-row" class="card fade-in" style="display:none;align-items:center;gap:12px;padding:12px 16px;margin-bottom:12px">
+      <span style="font-size:13px;font-weight:600;white-space:nowrap">1 AUD =</span>
+      <input type="number" id="aud-rate-input" class="form-control" style="max-width:100px;padding:7px 10px"
+        value="23" min="1" step="0.1" oninput="setAudRate(this.value)">
+      <span style="font-size:13px;font-weight:600">THB</span>
+      <span style="font-size:11px;color:var(--text-light);margin-left:auto">ราคาจะแปลงอัตโนมัติ</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid fade-in" id="home-stats"></div>
+
+    <!-- Recent -->
+    <div class="section-title fade-in">เมนูล่าสุด</div>
+    <div id="home-recent" class="fade-in"></div>
+  </div>
+
+  <!-- ─── PAGE: CALCULATOR ─── -->
+  <div id="page-calculator" class="page">
+    <!-- Step indicator -->
+    <div class="steps" id="calc-steps">
+      <div class="step active" id="step-ind-0"><div class="step-circle">1</div><div class="step-label">เมนู</div></div>
+      <div class="step-connector" id="conn-0"></div>
+      <div class="step" id="step-ind-1"><div class="step-circle">2</div><div class="step-label">วัตถุดิบ</div></div>
+      <div class="step-connector" id="conn-1"></div>
+      <div class="step" id="step-ind-2"><div class="step-circle">3</div><div class="step-label">บรรจุภัณฑ์</div></div>
+      <div class="step-connector" id="conn-2"></div>
+      <div class="step" id="step-ind-3"><div class="step-circle">4</div><div class="step-label">ค่าอื่นๆ</div></div>
+      <div class="step-connector" id="conn-3"></div>
+      <div class="step" id="step-ind-4"><div class="step-circle">5</div><div class="step-label">ผลลัพธ์</div></div>
+    </div>
+
+    <!-- STEP 1: Menu Info -->
+    <div id="calc-panel-0" class="fade-in">
+      <div class="card">
+        <div class="card-title">🍜 ข้อมูลเมนู</div>
+        <div class="form-group">
+          <label class="form-label">ชื่อเมนู / สินค้า *</label>
+          <input type="text" class="form-control" id="f-name" placeholder="เช่น ข้าวผัดกุ้ง, ชาไทย, ขนมปังปิ้ง">
+        </div>
+        <div class="input-row">
+          <div class="form-group" style="flex:1.6">
+            <label class="form-label">จำนวนที่ผลิตต่อครั้ง *</label>
+            <input type="number" class="form-control" id="f-qty" value="1" min="1">
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">หน่วย</label>
+            <select class="form-control" id="f-unit">
+              <option>จาน</option><option>แก้ว</option><option>ชิ้น</option>
+              <option>ถุง</option><option>กล่อง</option><option>ขวด</option>
+              <option>อัน</option><option>ลิตร</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ราคาขาย (ถ้าทราบแล้ว)</label>
+          <div style="position:relative">
+            <input type="number" class="form-control" id="f-sell" placeholder="0.00" min="0" style="padding-right:40px">
+            <span id="sell-currency-sym" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-light)">฿</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">หมวดหมู่</label>
+          <select class="form-control" id="f-cat">
+            <option>อาหารจานหลัก</option>
+            <option>อาหารเช้า</option>
+            <option>เครื่องดื่ม</option>
+            <option>ของหวาน</option>
+            <option>ขนม / ของกินเล่น</option>
+            <option>เบเกอรี่</option>
+            <option>ซอส</option>
+            <option>อื่นๆ</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-full btn-lg" onclick="goStep(1)">ถัดไป: ใส่วัตถุดิบ →</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Ingredients -->
+    <div id="calc-panel-1" style="display:none">
+      <div class="card">
+        <div class="card-title">🥕 วัตถุดิบ</div>
+        <div id="ing-list"></div>
+        <button class="btn btn-outline btn-full mt-2" onclick="openIngModal()">➕ เพิ่มวัตถุดิบ</button>
+        <hr class="divider">
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-muted">ต้นทุนวัตถุดิบรวม (ต่อหน่วย)</span>
+          <span class="font-bold text-green" id="ing-total">฿0.00</span>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button class="btn btn-ghost" style="flex:0.6" onclick="goStep(0)">← กลับ</button>
+          <button class="btn btn-primary" style="flex:1" onclick="goStep(2)">บรรจุภัณฑ์ →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: Packaging -->
+    <div id="calc-panel-2" style="display:none">
+      <div class="card">
+        <div class="card-title">📦 บรรจุภัณฑ์</div>
+        <div id="pkg-list"></div>
+        <button class="btn btn-outline btn-full mt-2" onclick="openPkgModal()">➕ เพิ่มบรรจุภัณฑ์</button>
+        <hr class="divider">
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-muted">ต้นทุนบรรจุภัณฑ์รวม (ต่อหน่วย)</span>
+          <span class="font-bold text-green" id="pkg-total">฿0.00</span>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button class="btn btn-ghost" style="flex:0.6" onclick="goStep(1)">← กลับ</button>
+          <button class="btn btn-primary" style="flex:1" onclick="goStep(3)">ค่าอื่นๆ →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 4: Misc costs -->
+    <div id="calc-panel-3" style="display:none">
+      <div class="card">
+        <div class="card-title">⚡ ค่าใช้จ่ายเบ็ดเตล็ด</div>
+        <div class="text-sm text-muted mb-3">ค่าแก๊ส ไฟฟ้า น้ำ ค่าแรง และอื่นๆ</div>
+        <div class="tabs" id="misc-tabs">
+          <button class="tab active" id="misc-tab-pct" onclick="setMiscMode('pct')">% ของต้นทุน</button>
+          <button class="tab" id="misc-tab-fixed" onclick="setMiscMode('fixed')">จำนวนเงินคงที่</button>
+          <button class="tab" id="misc-tab-none" onclick="setMiscMode('none')">ไม่มี</button>
+        </div>
+        <div id="misc-pct-ui">
+          <div class="form-group">
+            <label class="form-label">% ของต้นทุน (วัตถุดิบ + บรรจุภัณฑ์)</label>
+            <div style="position:relative">
+              <input type="number" class="form-control" id="misc-pct-val" value="10" min="0" max="100"
+                style="padding-right:40px" oninput="refreshMiscPreview()">
+              <span style="position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-light)">%</span>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <button class="btn btn-ghost btn-sm" onclick="setPct(5)">5%</button>
+              <button class="btn btn-ghost btn-sm" onclick="setPct(10)">10%</button>
+              <button class="btn btn-ghost btn-sm" onclick="setPct(15)">15%</button>
+              <button class="btn btn-ghost btn-sm" onclick="setPct(20)">20%</button>
+            </div>
+          </div>
+        </div>
+        <div id="misc-fixed-ui" style="display:none">
+          <div class="form-group">
+            <label class="form-label">ค่าใช้จ่ายรวมต่อ batch ที่ผลิต</label>
+            <div style="position:relative">
+              <input type="number" class="form-control" id="misc-fixed-val" placeholder="0.00" min="0"
+                style="padding-right:40px" oninput="refreshMiscPreview()">
+              <span id="misc-currency-sym" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text-light)">฿</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-light rounded p-3" style="margin-top:4px">
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-muted">ค่าใช้จ่ายต่อหน่วย</span>
+            <span class="font-bold text-orange" id="misc-preview-val">฿0.00</span>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button class="btn btn-ghost" style="flex:0.6" onclick="goStep(2)">← กลับ</button>
+          <button class="btn btn-accent" style="flex:1;font-size:16px" onclick="goStep(4)">🧮 คำนวณ!</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5: Results -->
+    <div id="calc-panel-4" style="display:none">
+      <div id="calc-result-area" class="fade-in"></div>
+    </div>
+  </div>
+
+  <!-- ─── PAGE: RECIPES ─── -->
+  <div id="page-recipes" class="page">
+    <div class="fade-in">
+      <div class="flex justify-between items-center mb-3">
+        <div style="font-size:18px;font-weight:800">📋 สูตรที่บันทึก</div>
+        <button class="btn btn-primary btn-sm" onclick="showPage('calculator')">+ ใหม่</button>
+      </div>
+      <input type="text" class="form-control mb-3" id="recipe-search"
+        placeholder="🔍 ค้นหาเมนู..." oninput="renderRecipes()">
+      <div class="tabs" id="cat-tabs">
+        <button class="tab active" onclick="setCatFilter('ทั้งหมด',this)">ทั้งหมด</button>
+        <button class="tab" onclick="setCatFilter('อาหาร',this)">อาหาร</button>
+        <button class="tab" onclick="setCatFilter('เครื่องดื่ม',this)">เครื่องดื่ม</button>
+        <button class="tab" onclick="setCatFilter('ของหวาน',this)">ของหวาน</button>
+      </div>
+      <div id="recipes-list"></div>
+    </div>
+  </div>
+
+  <!-- ─── PAGE: REPORTS ─── -->
+  <div id="page-reports" class="page">
+    <div class="fade-in">
+      <div style="font-size:18px;font-weight:800;margin-bottom:16px">📊 รายงาน</div>
+      <div id="reports-area"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     BOTTOM NAV
+═══════════════════════════════════════════════════ -->
+<nav class="bottom-nav">
+  <button class="nav-item active" id="nav-home" onclick="showPage('home')">
+    <span class="nav-icon">🏠</span><span>หน้าแรก</span>
+  </button>
+  <button class="nav-item" id="nav-calculator" onclick="showPage('calculator')">
+    <span class="nav-icon">🧮</span><span>คำนวณ</span>
+  </button>
+  <button class="nav-item" id="nav-recipes" onclick="showPage('recipes')">
+    <span class="nav-icon">📋</span><span>สูตรอาหาร</span>
+  </button>
+  <button class="nav-item" id="nav-reports" onclick="showPage('reports')">
+    <span class="nav-icon">📊</span><span>รายงาน</span>
+  </button>
+</nav>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════
+     MODAL: ADD INGREDIENT
+═══════════════════════════════════════════════════ -->
+<div id="modal-ing" style="display:none" class="modal-overlay"
+  onclick="if(event.target===this)closeModal('modal-ing')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🥕 เพิ่มวัตถุดิบ</div>
+      <button class="close-btn" onclick="closeModal('modal-ing')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ชื่อวัตถุดิบ *</label>
+      <input type="text" class="form-control" id="mi-name" placeholder="เช่น กุ้ง, ข้าวสาร, ไข่ไก่">
+    </div>
+    <div class="input-row">
+      <div class="form-group" style="flex:1.2">
+        <label class="form-label">ราคาที่ซื้อมา (฿) *</label>
+        <input type="number" class="form-control" id="mi-buy-price" placeholder="200" min="0" oninput="previewIngCost()">
+      </div>
+      <div class="form-group" style="flex:1.2">
+        <label class="form-label">ปริมาณที่ซื้อ *</label>
+        <input type="number" class="form-control" id="mi-buy-qty" placeholder="1000" min="0.001" oninput="previewIngCost()">
+      </div>
+      <div class="form-group" style="flex:0.9">
+        <label class="form-label">หน่วย</label>
+        <select class="form-control" id="mi-unit">
+          <option>กรัม</option><option>กิโลกรัม</option><option>มล.</option>
+          <option>ลิตร</option><option>ชิ้น</option><option>อัน</option>
+          <option>ฟอง</option><option>ถ้วย</option><option>ช้อนโต๊ะ</option>
+          <option>ช้อนชา</option><option>กำ</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ปริมาณที่ใช้ (ต่อ batch ที่ผลิต) *</label>
+      <input type="number" class="form-control" id="mi-use-qty" placeholder="50" min="0" oninput="previewIngCost()">
+    </div>
+    <div class="bg-light rounded p-3 mb-3">
+      <div class="flex justify-between items-center">
+        <span class="text-sm text-muted">ต้นทุนวัตถุดิบนี้ต่อหน่วย</span>
+        <span class="font-bold text-green" id="mi-cost-preview">฿0.00</span>
+      </div>
+      <div class="text-xs text-muted mt-1" id="mi-cost-formula"></div>
+    </div>
+    <button class="btn btn-primary btn-full btn-lg" onclick="addIngredient()">✅ เพิ่มวัตถุดิบ</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     MODAL: ADD PACKAGING
+═══════════════════════════════════════════════════ -->
+<div id="modal-pkg" style="display:none" class="modal-overlay"
+  onclick="if(event.target===this)closeModal('modal-pkg')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📦 เพิ่มบรรจุภัณฑ์</div>
+      <button class="close-btn" onclick="closeModal('modal-pkg')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ชื่อบรรจุภัณฑ์ *</label>
+      <input type="text" class="form-control" id="mp-name" placeholder="เช่น กล่องอาหาร, ถุงพลาสติก, หลอด">
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label class="form-label">ราคา/ชิ้น (฿) *</label>
+        <input type="number" class="form-control" id="mp-price" placeholder="3.50" min="0" oninput="previewPkgCost()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">จำนวนที่ใช้ต่อ batch *</label>
+        <input type="number" class="form-control" id="mp-qty" placeholder="1" min="1" value="1" oninput="previewPkgCost()">
+      </div>
+    </div>
+    <div class="bg-light rounded p-3 mb-3">
+      <div class="flex justify-between items-center">
+        <span class="text-sm text-muted">ต้นทุนต่อหน่วย</span>
+        <span class="font-bold text-green" id="mp-cost-preview">฿0.00</span>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full btn-lg" onclick="addPackaging()">✅ เพิ่มบรรจุภัณฑ์</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     MODAL: RECIPE DETAIL
+═══════════════════════════════════════════════════ -->
+<div id="modal-recipe" style="display:none" class="modal-overlay"
+  onclick="if(event.target===this)closeModal('modal-recipe')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-recipe-title">รายละเอียดสูตร</div>
+      <button class="close-btn" onclick="closeModal('modal-recipe')">✕</button>
+    </div>
+    <div id="modal-recipe-body"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════ -->
+<script>
+// ────────────────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────────────────
+const STORE_KEY = 'costspice_v3';
+const SETTINGS_KEY = 'costspice_settings';
+
+let currency = 'THB';   // 'THB' | 'AUD'
+let audRate  = 23;       // 1 AUD = N THB
+
+let recipes = [];
+let catFilter = 'ทั้งหมด';
+let editingId = null;
+
+let form = {
+  name: '', qty: 1, unit: 'จาน', sell: null, cat: 'อาหารจานหลัก',
+  ings: [],   // { name, buyPrice, buyQty, usedQty, unit }
+  pkgs: [],   // { name, price, qty }
+  miscMode: 'pct', miscPct: 10, miscFixed: 0
+};
+
+// ────────────────────────────────────────────────────
+// STORAGE
+// ────────────────────────────────────────────────────
+function load() {
+  try { recipes = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+  catch { recipes = []; }
+}
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(recipes)); }
+
+// ────────────────────────────────────────────────────
+// NAVIGATION
+// ────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const navEl = document.getElementById('nav-' + id);
+  if (navEl) navEl.classList.add('active');
+  if (id === 'home') renderHome();
+  if (id === 'recipes') renderRecipes();
+  if (id === 'reports') renderReports();
+  if (id === 'calculator') initCalc();
+  window.scrollTo(0, 0);
+}
+
+// ────────────────────────────────────────────────────
+// HOME
+// ────────────────────────────────────────────────────
+function renderHome() {
+  const total = recipes.length;
+  const withPrice = recipes.filter(r => r.res?.sell != null);
+  const margins = withPrice.map(r => r.res.margin).filter(m => m != null);
+  const avgMargin = margins.length ? (margins.reduce((a, b) => a + b, 0) / margins.length) : 0;
+  const best = [...recipes].filter(r => r.res?.margin != null).sort((a, b) => b.res.margin - a.res.margin)[0];
+  const cheapest = [...recipes].filter(r => r.res?.costPer > 0).sort((a, b) => a.res.costPer - b.res.costPer)[0];
+
+  document.getElementById('home-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-emoji">📋</div><div class="stat-value">${total}</div><div class="stat-label">เมนูทั้งหมด</div></div>
+    <div class="stat-card"><div class="stat-emoji">📈</div><div class="stat-value">${avgMargin.toFixed(1)}%</div><div class="stat-label">กำไรเฉลี่ย</div></div>
+    <div class="stat-card"><div class="stat-emoji">🏆</div><div class="stat-value" style="font-size:13px;font-weight:700">${best?.name || '-'}</div><div class="stat-label">กำไรสูงสุด</div></div>
+    <div class="stat-card"><div class="stat-emoji">💸</div><div class="stat-value" style="font-size:13px">${cheapest ? fmt(cheapest.res.costPer) : '-'}</div><div class="stat-label">ต้นทุนต่ำสุด</div></div>
+  `;
+
+  const recent = [...recipes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 4);
+  document.getElementById('home-recent').innerHTML = recent.length
+    ? recent.map(recipeCardHTML).join('')
+    : `<div class="empty-state"><div class="empty-icon">🍳</div><div class="empty-title">ยังไม่มีเมนู</div><div class="empty-desc">เริ่มคำนวณต้นทุนเมนูแรกของคุณ</div><button class="btn btn-primary mt-3" onclick="showPage('calculator')">➕ เพิ่มเมนูแรก</button></div>`;
+}
+
+// ────────────────────────────────────────────────────
+// CALCULATOR
+// ────────────────────────────────────────────────────
+function initCalc() {
+  if (!editingId) resetForm();
+  renderStep(0);
+}
+
+function resetForm() {
+  form = { name:'', qty:1, unit:'จาน', sell:null, cat:'อาหารจานหลัก',
+    ings:[], pkgs:[], miscMode:'pct', miscPct:10, miscFixed:0 };
+}
+
+function renderStep(step) {
+  for (let i = 0; i <= 4; i++) {
+    const el = document.getElementById('calc-panel-' + i);
+    if (el) el.style.display = (i === step) ? 'block' : 'none';
+  }
+  // Update step indicators
+  for (let i = 0; i <= 4; i++) {
+    const s = document.getElementById('step-ind-' + i);
+    if (!s) continue;
+    s.classList.remove('active', 'done');
+    if (i < step) s.classList.add('done');
+    else if (i === step) s.classList.add('active');
+  }
+  for (let i = 0; i <= 3; i++) {
+    const c = document.getElementById('conn-' + i);
+    if (c) c.classList.toggle('done', i < step);
+  }
+  // Populate
+  if (step === 0) fillMenuForm();
+  if (step === 1) renderIngList();
+  if (step === 2) renderPkgList();
+  if (step === 3) renderMiscStep();
+  if (step === 4) renderResults();
+  window.scrollTo(0, 0);
+}
+
+function goStep(step) {
+  const cur = getCurrentStep();
+  if (step === 1) {
+    const n = document.getElementById('f-name').value.trim();
+    const q = parseInt(document.getElementById('f-qty').value);
+    if (!n) { toast('⚠️ กรุณากรอกชื่อเมนู'); return; }
+    if (!q || q < 1) { toast('⚠️ กรุณากรอกจำนวนที่ผลิต'); return; }
+    form.name = n; form.qty = q;
+    form.unit = document.getElementById('f-unit').value;
+    form.sell = parseFloat(document.getElementById('f-sell').value) || null;
+    form.cat = document.getElementById('f-cat').value;
+  }
+  if (step === 3) {
+    // save misc current values before moving forward
+    const sel = getActiveTab('misc-tab');
+    // already handled by setMiscMode
+  }
+  renderStep(step);
+}
+
+function getCurrentStep() {
+  for (let i = 0; i <= 4; i++) {
+    const el = document.getElementById('calc-panel-' + i);
+    if (el && el.style.display !== 'none') return i;
+  }
+  return 0;
+}
+
+function getActiveTab(prefix) {
+  if (document.getElementById(prefix + '-pct')?.classList.contains('active')) return 'pct';
+  if (document.getElementById(prefix + '-fixed')?.classList.contains('active')) return 'fixed';
+  return 'none';
+}
+
+function fillMenuForm() {
+  document.getElementById('f-name').value = form.name || '';
+  document.getElementById('f-qty').value = form.qty || 1;
+  document.getElementById('f-unit').value = form.unit || 'จาน';
+  document.getElementById('f-sell').value = form.sell || '';
+  document.getElementById('f-cat').value = form.cat || 'อาหารจานหลัก';
+}
+
+// ── Ingredients ──
+function renderIngList() {
+  const el = document.getElementById('ing-list');
+  if (!form.ings.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:18px 0"><div class="empty-icon" style="font-size:32px">🥕</div><div class="empty-desc">ยังไม่มีวัตถุดิบ<br>กดปุ่มด้านล่างเพื่อเพิ่ม</div></div>`;
+  } else {
+    el.innerHTML = form.ings.map((ing, i) => {
+      const costBatch = (ing.buyPrice / ing.buyQty) * ing.usedQty;
+      const costPer = costBatch / form.qty;
+      return `
+        <div class="item-row">
+          <div class="item-row-body">
+            <div class="item-name">${ing.name}</div>
+            <div class="item-sub">ใช้ ${ing.usedQty} ${ing.unit} · ซื้อ ${ing.buyQty} ${ing.unit} = ${fmt(ing.buyPrice)}</div>
+          </div>
+          <div class="item-cost">
+            <div class="item-cost-value">${fmt(costPer)}</div>
+            <div class="item-cost-sub">/หน่วย</div>
+          </div>
+          <button class="remove-btn" onclick="removeIng(${i})">✕</button>
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('ing-total').textContent = fmt(calcIngCost());
+}
+
+function calcIngCost() {
+  return form.ings.reduce((s, ing) => s + (ing.buyPrice / ing.buyQty) * ing.usedQty / form.qty, 0);
+}
+
+function openIngModal() {
+  ['mi-name','mi-buy-price','mi-buy-qty','mi-use-qty'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('mi-cost-preview').textContent = '฿0.00';
+  document.getElementById('mi-cost-formula').textContent = '';
+  document.getElementById('modal-ing').style.display = 'flex';
+  setTimeout(() => document.getElementById('mi-name').focus(), 80);
+}
+
+function previewIngCost() {
+  const bp = parseFloat(document.getElementById('mi-buy-price').value) || 0;
+  const bq = parseFloat(document.getElementById('mi-buy-qty').value) || 1;
+  const uq = parseFloat(document.getElementById('mi-use-qty').value) || 0;
+  const batch = (bp / bq) * uq;
+  const per = batch / (form.qty || 1);
+  document.getElementById('mi-cost-preview').textContent = fmt(per) + '/หน่วย';
+  document.getElementById('mi-cost-formula').textContent =
+    bp && bq ? `(${fmt(bp)} ÷ ${bq}) × ${uq} = ${fmt(batch)}/batch` : '';
+}
+
+function addIngredient() {
+  const name = document.getElementById('mi-name').value.trim();
+  const buyPrice = parseFloat(document.getElementById('mi-buy-price').value);
+  const buyQty = parseFloat(document.getElementById('mi-buy-qty').value);
+  const usedQty = parseFloat(document.getElementById('mi-use-qty').value);
+  const unit = document.getElementById('mi-unit').value;
+  if (!name) { toast('⚠️ กรุณากรอกชื่อวัตถุดิบ'); return; }
+  if (!buyPrice || buyPrice <= 0) { toast('⚠️ กรุณากรอกราคา'); return; }
+  if (!buyQty || buyQty <= 0) { toast('⚠️ กรุณากรอกปริมาณที่ซื้อ'); return; }
+  if (!usedQty || usedQty <= 0) { toast('⚠️ กรุณากรอกปริมาณที่ใช้'); return; }
+  form.ings.push({ name, buyPrice, buyQty, usedQty, unit });
+  closeModal('modal-ing');
+  renderIngList();
+  toast('✅ เพิ่มวัตถุดิบแล้ว');
+}
+
+function removeIng(i) { form.ings.splice(i, 1); renderIngList(); }
+
+// ── Packaging ──
+function renderPkgList() {
+  const el = document.getElementById('pkg-list');
+  if (!form.pkgs.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:18px 0"><div class="empty-icon" style="font-size:32px">📦</div><div class="empty-desc">ยังไม่มีบรรจุภัณฑ์<br>ถ้าไม่ใช้สามารถข้ามได้</div></div>`;
+  } else {
+    el.innerHTML = form.pkgs.map((pkg, i) => {
+      const costPer = (pkg.price * pkg.qty) / form.qty;
+      return `
+        <div class="item-row">
+          <div class="item-row-body">
+            <div class="item-name">${pkg.name}</div>
+            <div class="item-sub">${pkg.qty} ชิ้น × ${fmt(pkg.price)}/ชิ้น</div>
+          </div>
+          <div class="item-cost">
+            <div class="item-cost-value">${fmt(costPer)}</div>
+            <div class="item-cost-sub">/หน่วย</div>
+          </div>
+          <button class="remove-btn" onclick="removePkg(${i})">✕</button>
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('pkg-total').textContent = fmt(calcPkgCost());
+}
+
+function calcPkgCost() {
+  return form.pkgs.reduce((s, p) => s + (p.price * p.qty) / form.qty, 0);
+}
+
+function openPkgModal() {
+  ['mp-name','mp-price','mp-qty'].forEach(id => { const el = document.getElementById(id); if(el) el.value = id === 'mp-qty' ? '1' : ''; });
+  document.getElementById('mp-cost-preview').textContent = '฿0.00';
+  document.getElementById('modal-pkg').style.display = 'flex';
+  setTimeout(() => document.getElementById('mp-name').focus(), 80);
+}
+
+function previewPkgCost() {
+  const p = parseFloat(document.getElementById('mp-price').value) || 0;
+  const q = parseInt(document.getElementById('mp-qty').value) || 1;
+  const per = (p * q) / (form.qty || 1);
+  document.getElementById('mp-cost-preview').textContent = fmt(per) + '/หน่วย';
+}
+
+function addPackaging() {
+  const name = document.getElementById('mp-name').value.trim();
+  const price = parseFloat(document.getElementById('mp-price').value);
+  const qty = parseInt(document.getElementById('mp-qty').value) || 1;
+  if (!name) { toast('⚠️ กรุณากรอกชื่อบรรจุภัณฑ์'); return; }
+  if (!price || price < 0) { toast('⚠️ กรุณากรอกราคา'); return; }
+  form.pkgs.push({ name, price, qty });
+  closeModal('modal-pkg');
+  renderPkgList();
+  toast('✅ เพิ่มบรรจุภัณฑ์แล้ว');
+}
+
+function removePkg(i) { form.pkgs.splice(i, 1); renderPkgList(); }
+
+// ── Misc ──
+function renderMiscStep() {
+  setMiscMode(form.miscMode, false);
+  if (form.miscMode === 'pct') {
+    const el = document.getElementById('misc-pct-val');
+    if (el) el.value = form.miscPct;
+  }
+  if (form.miscMode === 'fixed') {
+    const el = document.getElementById('misc-fixed-val');
+    if (el) el.value = form.miscFixed;
+  }
+  refreshMiscPreview();
+}
+
+function setMiscMode(mode, updateForm = true) {
+  if (updateForm) form.miscMode = mode;
+  document.getElementById('misc-pct-ui').style.display = mode === 'pct' ? 'block' : 'none';
+  document.getElementById('misc-fixed-ui').style.display = mode === 'fixed' ? 'block' : 'none';
+  ['pct','fixed','none'].forEach(m => {
+    const el = document.getElementById('misc-tab-' + m);
+    if (el) el.classList.toggle('active', m === mode);
+  });
+  refreshMiscPreview();
+}
+
+function setPct(v) {
+  const el = document.getElementById('misc-pct-val');
+  if (el) { el.value = v; form.miscPct = v; refreshMiscPreview(); }
+}
+
+function refreshMiscPreview() {
+  const ing = calcIngCost(), pkg = calcPkgCost(), sub = ing + pkg;
+  let misc = 0;
+  const mode = form.miscMode;
+  if (mode === 'pct') {
+    const v = parseFloat(document.getElementById('misc-pct-val')?.value) || 0;
+    form.miscPct = v;
+    misc = sub * v / 100;
+  } else if (mode === 'fixed') {
+    const v = parseFloat(document.getElementById('misc-fixed-val')?.value) || 0;
+    form.miscFixed = v;
+    misc = v / (form.qty || 1);
+  }
+  const el = document.getElementById('misc-preview-val');
+  if (el) el.textContent = fmt(misc);
+}
+
+function calcMiscCost() {
+  const ing = calcIngCost(), pkg = calcPkgCost(), sub = ing + pkg;
+  if (form.miscMode === 'pct') return sub * form.miscPct / 100;
+  if (form.miscMode === 'fixed') return form.miscFixed / (form.qty || 1);
+  return 0;
+}
+
+// ── Results ──
+function renderResults() {
+  const ing = calcIngCost();
+  const pkg = calcPkgCost();
+  const misc = calcMiscCost();
+  const total = ing + pkg + misc;
+  const sell = form.sell;
+  const profit = sell != null ? sell - total : null;
+  const margin = sell != null ? (profit / sell * 100) : null;
+
+  // Suggested prices
+  const s30 = total / 0.70;
+  const s40 = total / 0.60;
+  const s50 = total / 0.50;
+
+  let profitPill = '';
+  if (margin != null) {
+    if (margin >= 40) profitPill = `<div class="profit-pill great">✅ กำไรดีมาก! ${margin.toFixed(1)}% — เยี่ยมเลย</div>`;
+    else if (margin >= 25) profitPill = `<div class="profit-pill ok">⚠️ กำไรพอใช้ได้ ${margin.toFixed(1)}% — อาจปรับราคาขึ้นนิดหน่อย</div>`;
+    else if (margin >= 0) profitPill = `<div class="profit-pill low">⚠️ กำไรน้อยมาก ${margin.toFixed(1)}% — ควรปรับราคาหรือลดต้นทุน</div>`;
+    else profitPill = `<div class="profit-pill low">❌ ขาดทุน! ${margin.toFixed(1)}% — ต้องปรับราคาด่วน</div>`;
+  }
+
+  const totalIngBatch = form.ings.reduce((s, i) => s + (i.buyPrice / i.buyQty) * i.usedQty, 0);
+  const totalPkgBatch = form.pkgs.reduce((s, p) => s + p.price * p.qty, 0);
+  const miscBatch = form.miscMode === 'fixed' ? form.miscFixed : (totalIngBatch + totalPkgBatch) * form.miscPct / 100;
+
+  document.getElementById('calc-result-area').innerHTML = `
+    <div class="result-hero fade-in">
+      <div class="result-hero-label">ต้นทุนต่อ 1 ${form.unit}</div>
+      <div class="result-hero-value">${fmt(total)}</div>
+      <div class="result-hero-sub">${form.name} · ผลิต ${form.qty} ${form.unit}/ครั้ง</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 รายละเอียดต้นทุน (ต่อหน่วย)</div>
+      <div class="breakdown-row" style="background:#F0FDF4">
+        <span class="breakdown-label">🥕 วัตถุดิบ (${form.ings.length} รายการ)</span>
+        <span class="breakdown-value text-green">${fmt(ing)}</span>
+      </div>
+      <div class="breakdown-row" style="background:#F8FAFC">
+        <span class="breakdown-label">📦 บรรจุภัณฑ์ (${form.pkgs.length} รายการ)</span>
+        <span class="breakdown-value">${fmt(pkg)}</span>
+      </div>
+      <div class="breakdown-row" style="background:#FFF7ED">
+        <span class="breakdown-label">⚡ ค่าใช้จ่ายอื่นๆ</span>
+        <span class="breakdown-value text-orange">${fmt(misc)}</span>
+      </div>
+      <hr class="divider">
+      <div class="breakdown-row" style="background:#ECFDF5;border-radius:9px">
+        <span class="breakdown-label font-bold">💰 ต้นทุนรวม</span>
+        <span class="breakdown-value text-green font-bold" style="font-size:16px">${fmt(total)}</span>
+      </div>
+      ${sell != null ? `
+      <div class="breakdown-row mt-1" style="background:${profit >= 0 ? '#F0FDF4' : '#FEF2F2'};border-radius:9px">
+        <span class="breakdown-label">💵 กำไรสุทธิ (ขายที่ ${fmt(sell)})</span>
+        <span class="breakdown-value" style="color:${profit >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(profit)}</span>
+      </div>` : ''}
+      ${profitPill}
+    </div>
+
+    <div class="card">
+      <div class="card-title">🥧 สัดส่วนต้นทุน</div>
+      ${total > 0 ? renderCostBreakdown(ing, pkg, misc, total) : '<div class="text-muted text-sm">ไม่มีข้อมูล</div>'}
+    </div>
+
+    <div class="card">
+      <div class="card-title">💡 ราคาขายที่แนะนำ</div>
+      <div class="text-sm text-muted mb-3">เลือกอัตรากำไรที่ต้องการ (ตามต้นทุนที่คำนวณได้)</div>
+      <div class="price-grid">
+        <div class="price-card" onclick="pickPrice(${s30.toFixed(2)},this)">
+          <div class="price-margin">กำไร 30%</div>
+          <div class="price-value">${fmt(s30)}</div>
+          <div class="price-profit">กำไร ${fmt(s30 * 0.3)}</div>
+        </div>
+        <div class="price-card" onclick="pickPrice(${s40.toFixed(2)},this)">
+          <div class="price-margin">กำไร 40%</div>
+          <div class="price-value">${fmt(s40)}</div>
+          <div class="price-profit">กำไร ${fmt(s40 * 0.4)}</div>
+        </div>
+        <div class="price-card" onclick="pickPrice(${s50.toFixed(2)},this)">
+          <div class="price-margin">กำไร 50%</div>
+          <div class="price-value">${fmt(s50)}</div>
+          <div class="price-profit">กำไร ${fmt(s50 * 0.5)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 รายละเอียด batch (ผลิต ${form.qty} ${form.unit})</div>
+      <div class="breakdown-row" style="background:#F0FDF4">
+        <span class="text-sm">วัตถุดิบรวมทั้ง batch</span>
+        <span class="font-bold">${fmt(totalIngBatch)}</span>
+      </div>
+      <div class="breakdown-row" style="background:#F8FAFC">
+        <span class="text-sm">บรรจุภัณฑ์รวมทั้ง batch</span>
+        <span class="font-bold">${fmt(totalPkgBatch)}</span>
+      </div>
+      <div class="breakdown-row" style="background:#FFF7ED">
+        <span class="text-sm">ค่าอื่นๆ รวมทั้ง batch</span>
+        <span class="font-bold">${fmt(miscBatch)}</span>
+      </div>
+      <div class="breakdown-row" style="background:#ECFDF5;border-radius:9px">
+        <span class="font-bold">รวม batch ทั้งหมด</span>
+        <span class="font-bold text-green">${fmt(totalIngBatch + totalPkgBatch + miscBatch)}</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="btn btn-primary btn-full btn-lg" onclick="saveRecipe()">💾 บันทึกสูตรอาหาร</button>
+      <button class="btn btn-ghost btn-full mt-2" onclick="resetAndNew()">➕ คำนวณเมนูใหม่</button>
+    </div>
+  `;
+}
+
+function renderCostBreakdown(ing, pkg, misc, total) {
+  const pctIng = (ing / total * 100).toFixed(1);
+  const pctPkg = (pkg / total * 100).toFixed(1);
+  const pctMisc = (misc / total * 100).toFixed(1);
+  return `
+    <div class="mb-2">
+      <div class="flex justify-between mb-1"><span class="text-sm">🥕 วัตถุดิบ</span><span class="text-sm font-bold">${pctIng}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pctIng}%;background:var(--primary)"></div></div>
+    </div>
+    <div class="mb-2">
+      <div class="flex justify-between mb-1"><span class="text-sm">📦 บรรจุภัณฑ์</span><span class="text-sm font-bold">${pctPkg}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pctPkg}%;background:var(--accent)"></div></div>
+    </div>
+    <div class="mb-1">
+      <div class="flex justify-between mb-1"><span class="text-sm">⚡ ค่าอื่นๆ</span><span class="text-sm font-bold">${pctMisc}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pctMisc}%;background:var(--purple)"></div></div>
+    </div>`;
+}
+
+function pickPrice(price, el) {
+  document.querySelectorAll('.price-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  form.sell = price;
+  toast(`เลือกราคาขาย ${fmt(price)}`);
+  renderResults();
+}
+
+function saveRecipe() {
+  const ing = calcIngCost(), pkg = calcPkgCost(), misc = calcMiscCost();
+  const total = ing + pkg + misc;
+  const sell = form.sell;
+  const profit = sell != null ? sell - total : null;
+  const margin = sell != null ? (profit / sell * 100) : null;
+
+  const recipe = {
+    id: editingId || (Date.now() + '.' + Math.random().toString(36).slice(2)),
+    name: form.name, qty: form.qty, unit: form.unit,
+    cat: form.cat, sell: form.sell,
+    ings: [...form.ings], pkgs: [...form.pkgs],
+    misc: { mode: form.miscMode, pct: form.miscPct, fixed: form.miscFixed },
+    res: { costPer: total, ingPer: ing, pkgPer: pkg, miscPer: misc, sell, profit, margin },
+    createdAt: editingId ? (recipes.find(r => r.id === editingId)?.createdAt || Date.now()) : Date.now(),
+    updatedAt: Date.now()
+  };
+
+  if (editingId) {
+    const idx = recipes.findIndex(r => r.id === editingId);
+    if (idx !== -1) recipes[idx] = recipe; else recipes.push(recipe);
+  } else {
+    recipes.push(recipe);
+  }
+
+  save();
+  editingId = null;
+  toast('✅ บันทึกสูตรอาหารแล้ว!');
+  setTimeout(() => showPage('recipes'), 800);
+}
+
+function resetAndNew() { editingId = null; resetForm(); renderStep(0); }
+
+// ────────────────────────────────────────────────────
+// RECIPES
+// ────────────────────────────────────────────────────
+function renderRecipes() {
+  let list = [...recipes];
+  const search = (document.getElementById('recipe-search')?.value || '').toLowerCase().trim();
+  if (search) list = list.filter(r => r.name.toLowerCase().includes(search) || r.cat?.toLowerCase().includes(search));
+  if (catFilter !== 'ทั้งหมด') {
+    list = list.filter(r => {
+      if (catFilter === 'อาหาร') return ['อาหารจานหลัก','อาหารเช้า'].includes(r.cat);
+      if (catFilter === 'เครื่องดื่ม') return r.cat === 'เครื่องดื่ม';
+      if (catFilter === 'ของหวาน') return ['ของหวาน','ขนม / ของกินเล่น','เบเกอรี่'].includes(r.cat);
+      return true;
+    });
+  }
+  list.sort((a, b) => b.updatedAt - a.updatedAt);
+  const el = document.getElementById('recipes-list');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🍳</div><div class="empty-title">ไม่พบเมนู</div><div class="empty-desc">ลองค้นหาด้วยคำอื่น หรือเพิ่มเมนูใหม่</div><button class="btn btn-primary mt-3" onclick="showPage('calculator')">➕ เพิ่มเมนู</button></div>`;
+    return;
+  }
+  el.innerHTML = list.map(recipeCardHTML).join('');
+}
+
+function recipeCardHTML(r) {
+  const margin = r.res?.margin;
+  const marginBadge = margin != null
+    ? `<span class="badge ${margin >= 40 ? 'badge-green' : margin >= 25 ? 'badge-orange' : 'badge-red'}">${margin.toFixed(1)}%</span>`
+    : '';
+  const icon = catIcon(r.cat);
+  return `
+    <div class="recipe-card" onclick="showRecipeDetail('${r.id}')">
+      <div class="recipe-emoji">${icon}</div>
+      <div class="recipe-info">
+        <div class="recipe-name">${r.name}</div>
+        <div class="recipe-meta">${r.cat || ''} · ${r.qty} ${r.unit} ${marginBadge}</div>
+      </div>
+      <div class="recipe-right">
+        <div class="recipe-cost">${fmt(r.res?.costPer || 0)}</div>
+        <div class="recipe-per">/หน่วย</div>
+      </div>
+    </div>`;
+}
+
+function catIcon(cat) {
+  const m = { 'อาหารจานหลัก':'🍜','อาหารเช้า':'🍳','เครื่องดื่ม':'🧋','ของหวาน':'🍮','ขนม / ของกินเล่น':'🍿','เบเกอรี่':'🧁','ซอส':'🫙','อื่นๆ':'🍽️' };
+  return m[cat] || '🍽️';
+}
+
+function setCatFilter(cat, btn) {
+  catFilter = cat;
+  document.querySelectorAll('#cat-tabs .tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderRecipes();
+}
+
+function showRecipeDetail(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('modal-recipe-title').textContent = catIcon(r.cat) + ' ' + r.name;
+  document.getElementById('modal-recipe-body').innerHTML = `
+    <div class="bg-light rounded p-3 mb-3">
+      <div class="flex justify-between mb-2"><span class="text-sm text-muted">หมวดหมู่</span><span class="text-sm font-bold">${r.cat}</span></div>
+      <div class="flex justify-between mb-2"><span class="text-sm text-muted">ผลิต</span><span class="text-sm font-bold">${r.qty} ${r.unit}/ครั้ง</span></div>
+      <div class="flex justify-between mb-2"><span class="text-sm text-muted">ต้นทุน/หน่วย</span><span class="text-sm font-bold text-green">${fmt(r.res?.costPer || 0)}</span></div>
+      ${r.res?.sell != null ? `
+        <div class="flex justify-between mb-2"><span class="text-sm text-muted">ราคาขาย</span><span class="text-sm font-bold">${fmt(r.res.sell)}</span></div>
+        <div class="flex justify-between"><span class="text-sm text-muted">% กำไร</span><span class="text-sm font-bold ${r.res.margin >= 0 ? 'text-green' : 'text-red'}">${r.res.margin?.toFixed(1)}%</span></div>
+      ` : '<div class="text-sm text-muted">ยังไม่ได้ตั้งราคาขาย</div>'}
+    </div>
+    <div class="section-title">วัตถุดิบ (${r.ings.length} รายการ)</div>
+    ${r.ings.map(ing => `
+      <div class="flex justify-between p-3 bg-light rounded mb-1">
+        <div><div class="text-sm font-bold">${ing.name}</div><div class="text-xs text-muted">ใช้ ${ing.usedQty} ${ing.unit}</div></div>
+        <span class="text-sm font-bold">${fmt((ing.buyPrice/ing.buyQty)*ing.usedQty/r.qty)}</span>
+      </div>`).join('')}
+    ${r.pkgs.length ? `
+      <div class="section-title mt-3">บรรจุภัณฑ์ (${r.pkgs.length} รายการ)</div>
+      ${r.pkgs.map(p => `
+        <div class="flex justify-between p-3 bg-light rounded mb-1">
+          <div><div class="text-sm font-bold">${p.name}</div><div class="text-xs text-muted">${p.qty} ชิ้น × ${fmt(p.price)}</div></div>
+          <span class="text-sm font-bold">${fmt((p.price*p.qty)/r.qty)}</span>
+        </div>`).join('')}
+    ` : ''}
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-outline" style="flex:1" onclick="editRecipe('${r.id}')">✏️ แก้ไข</button>
+      <button class="btn btn-danger" style="flex:1" onclick="deleteRecipe('${r.id}')">🗑️ ลบ</button>
+    </div>
+  `;
+  document.getElementById('modal-recipe').style.display = 'flex';
+}
+
+function editRecipe(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r) return;
+  editingId = id;
+  form = {
+    name: r.name, qty: r.qty, unit: r.unit, sell: r.sell, cat: r.cat,
+    ings: r.ings.map(i => ({...i})), pkgs: r.pkgs.map(p => ({...p})),
+    miscMode: r.misc?.mode || 'pct', miscPct: r.misc?.pct || 10, miscFixed: r.misc?.fixed || 0
+  };
+  closeModal('modal-recipe');
+  showPage('calculator');
+}
+
+function deleteRecipe(id) {
+  if (!confirm('ยืนยันการลบสูตรนี้?')) return;
+  recipes = recipes.filter(r => r.id !== id);
+  save();
+  closeModal('modal-recipe');
+  renderRecipes();
+  toast('🗑️ ลบสูตรแล้ว');
+}
+
+// ────────────────────────────────────────────────────
+// REPORTS
+// ────────────────────────────────────────────────────
+function renderReports() {
+  const el = document.getElementById('reports-area');
+  if (!recipes.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">ยังไม่มีข้อมูล</div><div class="empty-desc">เพิ่มเมนูและคำนวณต้นทุนก่อน</div></div>`;
+    return;
+  }
+
+  const withSell = recipes.filter(r => r.res?.sell != null && r.res?.margin != null);
+  const avgMargin = withSell.length
+    ? withSell.reduce((s, r) => s + r.res.margin, 0) / withSell.length : null;
+  const sortedMargin = [...withSell].sort((a, b) => b.res.margin - a.res.margin);
+  const sortedCost = [...recipes].filter(r => r.res?.costPer > 0).sort((a, b) => a.res.costPer - b.res.costPer);
+  const maxCost = Math.max(...recipes.map(r => r.res?.costPer || 0));
+
+  // Category breakdown
+  const cats = {};
+  recipes.forEach(r => { cats[r.cat] = (cats[r.cat] || 0) + 1; });
+
+  el.innerHTML = `
+    <!-- Summary -->
+    <div class="card">
+      <div class="card-title">📈 สรุปภาพรวม</div>
+      <div class="breakdown-row" style="background:#F0FDF4"><span class="breakdown-label">เมนูทั้งหมด</span><span class="breakdown-value">${recipes.length} เมนู</span></div>
+      <div class="breakdown-row" style="background:#F8FAFC"><span class="breakdown-label">มีราคาขาย</span><span class="breakdown-value">${withSell.length} เมนู</span></div>
+      ${avgMargin != null ? `<div class="breakdown-row" style="background:${avgMargin >= 35 ? '#F0FDF4' : '#FEF3C7'}">
+        <span class="breakdown-label">% กำไรเฉลี่ย</span>
+        <span class="breakdown-value ${avgMargin >= 35 ? 'text-green' : 'text-orange'}">${avgMargin.toFixed(1)}%</span>
+      </div>` : ''}
+      <div class="breakdown-row" style="background:#EFF6FF"><span class="breakdown-label">ต้นทุนต่ำสุด</span><span class="breakdown-value">${sortedCost[0] ? fmt(sortedCost[0].res.costPer) + ' (' + sortedCost[0].name + ')' : '-'}</span></div>
+      <div class="breakdown-row" style="background:#FFF7ED"><span class="breakdown-label">ต้นทุนสูงสุด</span><span class="breakdown-value">${maxCost ? fmt(maxCost) + ' (' + (recipes.find(r => r.res?.costPer === maxCost)?.name || '') + ')' : '-'}</span></div>
+    </div>
+
+    <!-- Cost bar chart -->
+    <div class="card">
+      <div class="card-title">💰 ต้นทุนต่อหน่วย (กราฟ)</div>
+      <div class="bar-chart">
+        ${recipes.slice(0, 8).map(r => {
+          const h = maxCost > 0 ? ((r.res?.costPer || 0) / maxCost * 110) : 5;
+          return `
+            <div class="bar-col">
+              <div class="bar" style="height:${h}px;background:var(--primary)"></div>
+              <div class="bar-name">${r.name}</div>
+              <div style="font-size:9px;color:var(--text);font-weight:700">${fmt(r.res?.costPer || 0)}</div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    ${sortedMargin.length ? `
+    <!-- Margin ranking -->
+    <div class="card">
+      <div class="card-title">🏆 อันดับ % กำไร</div>
+      ${sortedMargin.slice(0, 8).map((r, i) => `
+        <div style="margin-bottom:12px">
+          <div class="flex justify-between items-center mb-1">
+            <div class="flex items-center gap-2">
+              <span style="font-size:16px">${['🥇','🥈','🥉'][i] || (i+1)+'.'}</span>
+              <span class="text-sm font-bold">${r.name}</span>
+            </div>
+            <span class="badge ${r.res.margin >= 40 ? 'badge-green' : r.res.margin >= 25 ? 'badge-orange' : 'badge-red'}">${r.res.margin.toFixed(1)}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:${Math.min(Math.max(r.res.margin, 0), 100)}%;background:${r.res.margin >= 40 ? 'var(--success)' : r.res.margin >= 25 ? 'var(--warning)' : 'var(--danger)'}"></div>
+          </div>
+          <div class="flex justify-between mt-1">
+            <span class="text-xs text-muted">ต้นทุน ${fmt(r.res.costPer)} · ขาย ${fmt(r.res.sell)}</span>
+            <span class="text-xs font-bold ${r.res.profit >= 0 ? 'text-green' : 'text-red'}">กำไร ${fmt(r.res.profit)}</span>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <!-- Category pie -->
+    <div class="card">
+      <div class="card-title">🗂️ หมวดหมู่เมนู</div>
+      ${Object.entries(cats).map(([cat, cnt]) => `
+        <div class="flex justify-between items-center mb-2">
+          <div class="flex items-center gap-2">
+            <span>${catIcon(cat)}</span>
+            <span class="text-sm">${cat}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="progress-bar" style="width:80px">
+              <div class="progress-fill" style="width:${(cnt/recipes.length*100).toFixed(0)}%;background:var(--primary)"></div>
+            </div>
+            <span class="text-sm font-bold">${cnt}</span>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <!-- Recommendations -->
+    <div class="card">
+      <div class="card-title">💡 คำแนะนำ</div>
+      ${generateRecs()}
+    </div>
+  `;
+}
+
+function generateRecs() {
+  const recs = [];
+  const withSell = recipes.filter(r => r.res?.sell != null);
+  const lowMargin = withSell.filter(r => r.res.margin < 25);
+  const noPrice = recipes.filter(r => r.res?.sell == null);
+  const highCost = [...recipes].sort((a, b) => (b.res?.costPer || 0) - (a.res?.costPer || 0))[0];
+
+  if (lowMargin.length)
+    recs.push(`<div class="breakdown-row mb-1" style="background:#FEF3C7">⚠️ <strong>${lowMargin.map(r => r.name).join(', ')}</strong> กำไรน้อยกว่า 25% ควรทบทวนราคาหรือต้นทุน</div>`);
+  if (noPrice.length)
+    recs.push(`<div class="breakdown-row mb-1" style="background:#DBEAFE">💡 มี ${noPrice.length} เมนูที่ยังไม่ตั้งราคาขาย ลองตั้งเพื่อดูอัตรากำไร</div>`);
+  if (highCost)
+    recs.push(`<div class="breakdown-row mb-1" style="background:#EDE9FE">📌 <strong>${highCost.name}</strong> มีต้นทุนสูงสุด (${fmt(highCost.res?.costPer)}) ลองหาวัตถุดิบทางเลือก</div>`);
+  if (!recs.length)
+    recs.push(`<div class="breakdown-row" style="background:#D1FAE5">✅ ยอดเยี่ยม! เมนูทุกอย่างดูดีแล้ว</div>`);
+  return recs.join('');
+}
+
+// ────────────────────────────────────────────────────
+// SAMPLE RECIPES
+// ────────────────────────────────────────────────────
+const SAMPLES = [
+  {
+    name: 'ข้าวผัดกุ้ง', qty: 1, unit: 'จาน', cat: 'อาหารจานหลัก', sell: 60,
+    ings: [
+      { name:'ข้าวสวย', buyPrice:50, buyQty:1000, usedQty:200, unit:'กรัม' },
+      { name:'กุ้ง', buyPrice:200, buyQty:500, usedQty:80, unit:'กรัม' },
+      { name:'ไข่ไก่', buyPrice:60, buyQty:10, usedQty:1, unit:'ฟอง' },
+      { name:'น้ำมันพืช', buyPrice:70, buyQty:1000, usedQty:20, unit:'มล.' },
+      { name:'เครื่องปรุง', buyPrice:30, buyQty:30, usedQty:5, unit:'มล.' },
+    ],
+    pkgs: [{ name:'กล่องโฟม', price:2, qty:1 }],
+    misc: { mode:'pct', pct:10, fixed:0 }
+  },
+  {
+    name: 'ชาไทยเย็น', qty: 10, unit: 'แก้ว', cat: 'เครื่องดื่ม', sell: 35,
+    ings: [
+      { name:'ชาผงไทย', buyPrice:80, buyQty:500, usedQty:100, unit:'กรัม' },
+      { name:'นมข้นหวาน', buyPrice:45, buyQty:405, usedQty:200, unit:'มล.' },
+      { name:'น้ำตาล', buyPrice:25, buyQty:1000, usedQty:50, unit:'กรัม' },
+      { name:'น้ำแข็ง', buyPrice:10, buyQty:10, usedQty:1, unit:'ถุง' },
+    ],
+    pkgs: [{ name:'แก้วพลาสติก', price:2.5, qty:10 }, { name:'หลอด', price:0.5, qty:10 }],
+    misc: { mode:'pct', pct:5, fixed:0 }
+  },
+  {
+    name: 'ขนมปังปิ้งไข่', qty: 5, unit: 'ชิ้น', cat: 'อาหารเช้า', sell: 25,
+    ings: [
+      { name:'ขนมปังแถว', buyPrice:30, buyQty:12, usedQty:2, unit:'แผ่น' },
+      { name:'ไข่ไก่', buyPrice:60, buyQty:10, usedQty:1, unit:'ฟอง' },
+      { name:'เนย', buyPrice:45, buyQty:200, usedQty:20, unit:'กรัม' },
+      { name:'แยม', buyPrice:60, buyQty:300, usedQty:30, unit:'กรัม' },
+    ],
+    pkgs: [{ name:'ถุงกระดาษ', price:1.5, qty:5 }],
+    misc: { mode:'fixed', pct:10, fixed:10 }
+  },
+  {
+    name: 'ส้มตำไทย', qty: 1, unit: 'จาน', cat: 'อาหารจานหลัก', sell: 50,
+    ings: [
+      { name:'มะละกอ', buyPrice:40, buyQty:1, usedQty:0.3, unit:'กิโลกรัม' },
+      { name:'มะเขือเทศ', buyPrice:30, buyQty:500, usedQty:50, unit:'กรัม' },
+      { name:'พริก', buyPrice:20, buyQty:200, usedQty:10, unit:'กรัม' },
+      { name:'กุ้งแห้ง', buyPrice:80, buyQty:100, usedQty:10, unit:'กรัม' },
+      { name:'น้ำปลา+น้ำตาล', buyPrice:40, buyQty:1, usedQty:1, unit:'ชุด' },
+      { name:'มะนาว', buyPrice:30, buyQty:10, usedQty:2, unit:'ลูก' },
+    ],
+    pkgs: [],
+    misc: { mode:'pct', pct:8, fixed:0 }
+  },
+];
+
+function loadSamples() {
+  const existing = recipes.map(r => r.name);
+  let added = 0;
+  SAMPLES.forEach(s => {
+    if (existing.includes(s.name)) return;
+    const ingCost = s.ings.reduce((sum, i) => sum + (i.buyPrice / i.buyQty) * i.usedQty / s.qty, 0);
+    const pkgCost = s.pkgs.reduce((sum, p) => sum + (p.price * p.qty) / s.qty, 0);
+    const sub = ingCost + pkgCost;
+    const miscCost = s.misc.mode === 'pct' ? sub * s.misc.pct / 100 : s.misc.fixed / s.qty;
+    const total = ingCost + pkgCost + miscCost;
+    const profit = s.sell - total;
+    const margin = profit / s.sell * 100;
+    recipes.push({
+      id: Date.now() + '.' + Math.random().toString(36).slice(2),
+      name: s.name, qty: s.qty, unit: s.unit, cat: s.cat, sell: s.sell,
+      ings: s.ings.map(i => ({...i})), pkgs: s.pkgs.map(p => ({...p})),
+      misc: {...s.misc},
+      res: { costPer: total, ingPer: ingCost, pkgPer: pkgCost, miscPer: miscCost, sell: s.sell, profit, margin },
+      createdAt: Date.now(), updatedAt: Date.now()
+    });
+    added++;
+  });
+  save();
+  toast(added ? `✅ โหลด ${added} สูตรตัวอย่างแล้ว!` : 'สูตรตัวอย่างมีอยู่แล้ว');
+  renderHome();
+}
+
+// ────────────────────────────────────────────────────
+// UTILITIES
+// ────────────────────────────────────────────────────
+function fmt(n) {
+  if (n == null || isNaN(n)) return currency === 'AUD' ? '$0.00' : '฿0.00';
+  const val = currency === 'AUD' ? Math.abs(n) / audRate : Math.abs(n);
+  const sym = currency === 'AUD' ? '$' : '฿';
+  return sym + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function setCurrency(cur) {
+  currency = cur;
+  document.getElementById('btn-thb').classList.toggle('active', cur === 'THB');
+  document.getElementById('btn-aud').classList.toggle('active', cur === 'AUD');
+  document.getElementById('aud-rate-row').style.display = cur === 'AUD' ? 'flex' : 'none';
+  const sym = cur === 'AUD' ? '$' : '฿';
+  const sellSym = document.getElementById('sell-currency-sym');
+  const miscSym = document.getElementById('misc-currency-sym');
+  if (sellSym) sellSym.textContent = sym;
+  if (miscSym) miscSym.textContent = sym;
+  saveSettings();
+  // Re-render current visible page
+  const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
+  if (activePage === 'home') renderHome();
+  if (activePage === 'recipes') renderRecipes();
+  if (activePage === 'reports') renderReports();
+  if (activePage === 'calculator') {
+    const step = getCurrentStep();
+    if (step === 4) renderResults();
+    if (step === 1) renderIngList();
+    if (step === 2) renderPkgList();
+  }
+  toast(cur === 'AUD' ? `เปลี่ยนเป็น $ AUD (1 AUD = ฿${audRate})` : 'เปลี่ยนเป็น ฿ THB');
+}
+
+function setAudRate(val) {
+  audRate = parseFloat(val) || 23;
+  saveSettings();
+  setCurrency('AUD');
+}
+
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ currency, audRate }));
+}
+
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    if (s.currency) currency = s.currency;
+    if (s.audRate)  audRate  = s.audRate;
+  } catch {}
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+// ────────────────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────────────────
+load();
+loadSettings();
+// Restore currency UI
+document.getElementById('btn-thb').classList.toggle('active', currency === 'THB');
+document.getElementById('btn-aud').classList.toggle('active', currency === 'AUD');
+if (currency === 'AUD') {
+  document.getElementById('aud-rate-row').style.display = 'flex';
+  document.getElementById('aud-rate-input').value = audRate;
+}
+renderHome();
+</script>
+</body>
+</html>
