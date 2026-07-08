@@ -1049,7 +1049,7 @@ function calcIngCost() {
 
 function openIngModal() {
   ['mi-name','mi-buy-price','mi-buy-qty','mi-use-qty'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  document.getElementById('mi-cost-preview').textContent = '฿0.00';
+  document.getElementById('mi-cost-preview').textContent = fmt(0) + '/หน่วย';
   document.getElementById('mi-cost-formula').textContent = '';
   document.getElementById('modal-ing').style.display = 'flex';
   setTimeout(() => document.getElementById('mi-name').focus(), 80);
@@ -1115,7 +1115,7 @@ function calcPkgCost() {
 
 function openPkgModal() {
   ['mp-name','mp-price','mp-qty'].forEach(id => { const el = document.getElementById(id); if(el) el.value = id === 'mp-qty' ? '1' : ''; });
-  document.getElementById('mp-cost-preview').textContent = '฿0.00';
+  document.getElementById('mp-cost-preview').textContent = fmt(0) + '/หน่วย';
   document.getElementById('modal-pkg').style.display = 'flex';
   setTimeout(() => document.getElementById('mp-name').focus(), 80);
 }
@@ -1713,6 +1713,7 @@ function setCurrency(cur) {
     if (step === 4) renderResults();
     if (step === 1) renderIngList();
     if (step === 2) renderPkgList();
+    if (step === 3) refreshMiscPreview();
   }
   toast(cur === 'AUD' ? `เปลี่ยนเป็น $ AUD (1 AUD = ฿${audRate})` : 'เปลี่ยนเป็น ฿ THB');
 }
