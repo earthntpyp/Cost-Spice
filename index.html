@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>cost.spice - คำนวณต้นทุนร้านอาหาร</title>
+  <meta name="theme-color" content="#4CAF50">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="cost.spice">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -543,6 +549,9 @@
         <button class="btn btn-full" style="background:white;color:#1B5E20;font-weight:800;font-size:15px;" onclick="showPage('calculator')">
           ➕ คำนวณต้นทุนใหม่
         </button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;white-space:nowrap" onclick="openLibrary()">
+          🗄️ คลังวัตถุดิบ
+        </button>
         <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;white-space:nowrap" onclick="loadSamples()">
           📦 ตัวอย่าง
         </button>
@@ -630,8 +639,11 @@
     <!-- STEP 2: Ingredients -->
     <div id="calc-panel-1" style="display:none">
       <div class="card">
-        <div class="card-title">🥕 วัตถุดิบ</div>
-        <div id="ing-list"></div>
+        <div class="flex justify-between items-center">
+          <div class="card-title" style="margin-bottom:0">🥕 วัตถุดิบ</div>
+          <button class="btn btn-ghost btn-sm" onclick="openLibrary()">🗄️ คลัง</button>
+        </div>
+        <div id="ing-list" class="mt-2"></div>
         <button class="btn btn-outline btn-full mt-2" onclick="openIngModal()">➕ เพิ่มวัตถุดิบ</button>
         <hr class="divider">
         <div class="flex justify-between items-center">
@@ -777,6 +789,12 @@
       <div class="modal-title">🥕 เพิ่มวัตถุดิบ</div>
       <button class="close-btn" onclick="closeModal('modal-ing')">✕</button>
     </div>
+    <div id="mi-lib-area" class="mb-3" style="display:none">
+      <label class="form-label">🗄️ เลือกจากคลังวัตถุดิบ (แตะเพื่อใช้)</label>
+      <input type="text" class="form-control" id="mi-lib-search" placeholder="🔍 ค้นหาในคลัง..." oninput="renderLibPick()">
+      <div id="mi-lib-list" style="max-height:150px;overflow-y:auto;margin-top:6px"></div>
+      <hr class="divider">
+    </div>
     <div class="form-group">
       <label class="form-label">ชื่อวัตถุดิบ *</label>
       <input type="text" class="form-control" id="mi-name" placeholder="เช่น กุ้ง, ข้าวสาร, ไข่ไก่">
@@ -850,6 +868,22 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════
+     MODAL: INGREDIENT LIBRARY
+═══════════════════════════════════════════════════ -->
+<div id="modal-library" style="display:none" class="modal-overlay"
+  onclick="if(event.target===this)closeModal('modal-library')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🗄️ คลังวัตถุดิบ</div>
+      <button class="close-btn" onclick="closeModal('modal-library')">✕</button>
+    </div>
+    <div class="text-xs text-muted mb-2">วัตถุดิบที่เคยกรอกจะถูกจำไว้ที่นี่อัตโนมัติ — แก้ราคาที่นี่ครั้งเดียว ต้นทุนทุกสูตรที่ใช้จะอัปเดตตาม</div>
+    <input type="text" class="form-control mb-2" id="lib-search" placeholder="🔍 ค้นหาวัตถุดิบ..." oninput="renderLibrary()">
+    <div id="lib-list" style="max-height:55vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
      MODAL: RECIPE DETAIL
 ═══════════════════════════════════════════════════ -->
 <div id="modal-recipe" style="display:none" class="modal-overlay"
@@ -895,6 +929,179 @@ function load() {
   catch { recipes = []; }
 }
 function save() { localStorage.setItem(STORE_KEY, JSON.stringify(recipes)); }
+
+// ────────────────────────────────────────────────────
+// INGREDIENT LIBRARY
+// ────────────────────────────────────────────────────
+const LIB_KEY = 'costspice_library';
+let library = [];   // { id, name, buyPrice, buyQty, unit, updatedAt } — ราคาเก็บเป็น THB เสมอ
+let libEditId = null;
+
+function loadLibrary() {
+  try { library = JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); }
+  catch { library = []; }
+}
+function saveLibrary() { localStorage.setItem(LIB_KEY, JSON.stringify(library)); }
+
+function upsertLibraryItem(name, buyPrice, buyQty, unit) {
+  const ex = library.find(l => l.name === name);
+  if (ex) { ex.buyPrice = buyPrice; ex.buyQty = buyQty; ex.unit = unit; ex.updatedAt = Date.now(); }
+  else library.push({ id: Date.now() + '.' + Math.random().toString(36).slice(2), name, buyPrice, buyQty, unit, updatedAt: Date.now() });
+  saveLibrary();
+}
+
+// ── Picker inside ingredient modal ──
+function renderLibPick() {
+  const area = document.getElementById('mi-lib-area');
+  if (!library.length) { area.style.display = 'none'; return; }
+  area.style.display = 'block';
+  const q = (document.getElementById('mi-lib-search')?.value || '').toLowerCase().trim();
+  const list = library
+    .filter(l => !q || l.name.toLowerCase().includes(q))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 30);
+  document.getElementById('mi-lib-list').innerHTML = list.length
+    ? list.map(l => `
+      <div class="item-row" style="cursor:pointer;padding:8px 10px" onclick="pickLibItem('${l.id}')">
+        <div class="item-row-body">
+          <div class="item-name" style="font-size:13px">${l.name}</div>
+          <div class="item-sub">${fmt(l.buyPrice)} / ${l.buyQty} ${l.unit}</div>
+        </div>
+        <span class="text-xs" style="color:var(--primary);font-weight:700">ใช้ ➜</span>
+      </div>`).join('')
+    : '<div class="text-xs text-muted" style="padding:8px 0">ไม่พบวัตถุดิบที่ค้นหา</div>';
+}
+
+function pickLibItem(id) {
+  const l = library.find(x => x.id === id);
+  if (!l) return;
+  document.getElementById('mi-name').value = l.name;
+  document.getElementById('mi-buy-price').value = l.buyPrice;
+  document.getElementById('mi-buy-qty').value = l.buyQty;
+  document.getElementById('mi-unit').value = l.unit;
+  previewIngCost();
+  toast(`🗄️ ใช้ "${l.name}" จากคลัง`);
+  document.getElementById('mi-use-qty').focus();
+}
+
+// ── Library management modal ──
+function openLibrary() {
+  libEditId = null;
+  const s = document.getElementById('lib-search');
+  if (s) s.value = '';
+  renderLibrary();
+  document.getElementById('modal-library').style.display = 'flex';
+}
+
+function renderLibrary() {
+  const el = document.getElementById('lib-list');
+  if (!library.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:20px 0"><div class="empty-icon" style="font-size:32px">🗄️</div><div class="empty-desc">คลังยังว่าง<br>เพิ่มวัตถุดิบตอนคำนวณเมนู ระบบจะจำให้อัตโนมัติ</div></div>`;
+    return;
+  }
+  const q = (document.getElementById('lib-search')?.value || '').toLowerCase().trim();
+  const list = library
+    .filter(l => !q || l.name.toLowerCase().includes(q))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+  el.innerHTML = list.map(l => {
+    if (l.id === libEditId) {
+      return `
+        <div class="bg-light rounded p-3 mb-2">
+          <div class="item-name mb-2">${l.name}</div>
+          <div class="input-row">
+            <div class="form-group" style="flex:1;margin-bottom:8px">
+              <label class="form-label">ราคา (฿)</label>
+              <input type="number" class="form-control" id="le-price" value="${l.buyPrice}" min="0">
+            </div>
+            <div class="form-group" style="flex:1;margin-bottom:8px">
+              <label class="form-label">ปริมาณ</label>
+              <input type="number" class="form-control" id="le-qty" value="${l.buyQty}" min="0.001">
+            </div>
+            <div class="form-group" style="flex:1;margin-bottom:8px">
+              <label class="form-label">หน่วย</label>
+              <input type="text" class="form-control" id="le-unit" value="${l.unit}">
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost btn-sm" style="flex:0.6" onclick="libEditId=null;renderLibrary()">ยกเลิก</button>
+            <button class="btn btn-primary btn-sm" style="flex:1" onclick="saveLibItem('${l.id}')">💾 บันทึก + อัปเดตทุกสูตร</button>
+          </div>
+        </div>`;
+    }
+    const usedIn = recipes.filter(r => r.ings.some(i => i.name === l.name)).length;
+    return `
+      <div class="item-row">
+        <div class="item-row-body">
+          <div class="item-name">${l.name}</div>
+          <div class="item-sub">${fmt(l.buyPrice)} / ${l.buyQty} ${l.unit}${usedIn ? ` · ใช้ใน ${usedIn} สูตร` : ''}</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="libEditId='${l.id}';renderLibrary()">✏️</button>
+        <button class="remove-btn" onclick="deleteLibItem('${l.id}')">✕</button>
+      </div>`;
+  }).join('') || '<div class="text-xs text-muted" style="padding:8px 0">ไม่พบวัตถุดิบที่ค้นหา</div>';
+}
+
+function saveLibItem(id) {
+  const l = library.find(x => x.id === id);
+  if (!l) return;
+  const price = parseFloat(document.getElementById('le-price').value);
+  const qty = parseFloat(document.getElementById('le-qty').value);
+  const unit = document.getElementById('le-unit').value.trim() || l.unit;
+  if (!price || price <= 0) { toast('⚠️ กรุณากรอกราคา'); return; }
+  if (!qty || qty <= 0) { toast('⚠️ กรุณากรอกปริมาณ'); return; }
+  l.buyPrice = price; l.buyQty = qty; l.unit = unit; l.updatedAt = Date.now();
+  saveLibrary();
+  const count = updateRecipesUsing(l);
+  libEditId = null;
+  renderLibrary();
+  toast(count ? `✅ อัปเดต "${l.name}" และต้นทุน ${count} สูตรแล้ว!` : `✅ อัปเดต "${l.name}" แล้ว`);
+  // refresh whatever page is behind the modal
+  const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
+  if (activePage === 'home') renderHome();
+  if (activePage === 'recipes') renderRecipes();
+  if (activePage === 'reports') renderReports();
+}
+
+function deleteLibItem(id) {
+  const l = library.find(x => x.id === id);
+  if (!l) return;
+  if (!confirm(`ลบ "${l.name}" ออกจากคลัง? (สูตรที่บันทึกแล้วไม่ได้รับผลกระทบ)`)) return;
+  library = library.filter(x => x.id !== id);
+  saveLibrary();
+  renderLibrary();
+  toast('🗑️ ลบออกจากคลังแล้ว');
+}
+
+function updateRecipesUsing(item) {
+  let count = 0;
+  recipes.forEach(r => {
+    let touched = false;
+    r.ings.forEach(ing => {
+      if (ing.name === item.name) {
+        ing.buyPrice = item.buyPrice; ing.buyQty = item.buyQty; ing.unit = item.unit;
+        touched = true;
+      }
+    });
+    if (touched) { recalcRecipe(r); count++; }
+  });
+  if (count) save();
+  return count;
+}
+
+function recalcRecipe(r) {
+  const ing = r.ings.reduce((s, i) => s + (i.buyPrice / i.buyQty) * i.usedQty / r.qty, 0);
+  const pkg = r.pkgs.reduce((s, p) => s + (p.price * p.qty) / r.qty, 0);
+  const sub = ing + pkg;
+  const misc = r.misc?.mode === 'fixed' ? (r.misc.fixed || 0) / r.qty
+             : r.misc?.mode === 'none' ? 0
+             : sub * (r.misc?.pct || 0) / 100;
+  const total = ing + pkg + misc;
+  const sell = r.sell ?? null;
+  const profit = sell != null ? sell - total : null;
+  const margin = sell != null ? (profit / sell * 100) : null;
+  r.res = { costPer: total, ingPer: ing, pkgPer: pkg, miscPer: misc, sell, profit, margin };
+  r.updatedAt = Date.now();
+}
 
 // ────────────────────────────────────────────────────
 // NAVIGATION
@@ -1048,9 +1255,10 @@ function calcIngCost() {
 }
 
 function openIngModal() {
-  ['mi-name','mi-buy-price','mi-buy-qty','mi-use-qty'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  ['mi-name','mi-buy-price','mi-buy-qty','mi-use-qty','mi-lib-search'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   document.getElementById('mi-cost-preview').textContent = fmt(0) + '/หน่วย';
   document.getElementById('mi-cost-formula').textContent = '';
+  renderLibPick();
   document.getElementById('modal-ing').style.display = 'flex';
   setTimeout(() => document.getElementById('mi-name').focus(), 80);
 }
@@ -1077,9 +1285,10 @@ function addIngredient() {
   if (!buyQty || buyQty <= 0) { toast('⚠️ กรุณากรอกปริมาณที่ซื้อ'); return; }
   if (!usedQty || usedQty <= 0) { toast('⚠️ กรุณากรอกปริมาณที่ใช้'); return; }
   form.ings.push({ name, buyPrice, buyQty, usedQty, unit });
+  upsertLibraryItem(name, buyPrice, buyQty, unit);
   closeModal('modal-ing');
   renderIngList();
-  toast('✅ เพิ่มวัตถุดิบแล้ว');
+  toast('✅ เพิ่มวัตถุดิบแล้ว (บันทึกเข้าคลังอัตโนมัติ)');
 }
 
 function removeIng(i) { form.ings.splice(i, 1); renderIngList(); }
@@ -1281,6 +1490,16 @@ function renderResults() {
           <div class="price-profit">กำไร ${fmt(s50 * 0.5)}</div>
         </div>
       </div>
+      <div class="bg-light rounded p-3 mt-3">
+        <div class="text-sm font-bold mb-2">🎯 หรือกำหนด % กำไรเอง</div>
+        <div class="flex items-center gap-2">
+          <input type="number" class="form-control" id="custom-margin" value="60" min="1" max="95"
+            style="max-width:80px;text-align:center" oninput="updateCustomPrice(${total})">
+          <span class="text-sm">%</span>
+          <span class="font-bold text-green" id="custom-price-val" style="flex:1;text-align:right;font-size:17px">${fmt(total / 0.40)}</span>
+        </div>
+        <button class="btn btn-outline btn-full btn-sm mt-2" onclick="applyCustomPrice(${total})">✅ ใช้ราคานี้</button>
+      </div>
     </div>
 
     <div class="card">
@@ -1305,6 +1524,7 @@ function renderResults() {
 
     <div class="card">
       <button class="btn btn-primary btn-full btn-lg" onclick="saveRecipe()">💾 บันทึกสูตรอาหาร</button>
+      <button class="btn btn-outline btn-full mt-2" onclick="shareCurrentResult()">📤 แชร์สรุปต้นทุน (รูปภาพ)</button>
       <button class="btn btn-ghost btn-full mt-2" onclick="resetAndNew()">➕ คำนวณเมนูใหม่</button>
     </div>
   `;
@@ -1327,6 +1547,25 @@ function renderCostBreakdown(ing, pkg, misc, total) {
       <div class="flex justify-between mb-1"><span class="text-sm">⚡ ค่าอื่นๆ</span><span class="text-sm font-bold">${pctMisc}%</span></div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pctMisc}%;background:var(--purple)"></div></div>
     </div>`;
+}
+
+function customMarginPrice(total) {
+  const m = parseFloat(document.getElementById('custom-margin')?.value);
+  if (!m || m <= 0 || m >= 100) return null;
+  return total / (1 - m / 100);
+}
+
+function updateCustomPrice(total) {
+  const price = customMarginPrice(total);
+  document.getElementById('custom-price-val').textContent = price != null ? fmt(price) : '—';
+}
+
+function applyCustomPrice(total) {
+  const price = customMarginPrice(total);
+  if (price == null) { toast('⚠️ % กำไรต้องอยู่ระหว่าง 1-95'); return; }
+  form.sell = Math.round(price * 100) / 100;
+  toast(`เลือกราคาขาย ${fmt(form.sell)}`);
+  renderResults();
 }
 
 function pickPrice(price, el) {
@@ -1454,7 +1693,8 @@ function showRecipeDetail(id) {
           <span class="text-sm font-bold">${fmt((p.price*p.qty)/r.qty)}</span>
         </div>`).join('')}
     ` : ''}
-    <div class="flex gap-2 mt-4">
+    <button class="btn btn-primary btn-full mt-4" onclick="shareRecipeImage('${r.id}')">📤 แชร์สรุปต้นทุน (รูปภาพ)</button>
+    <div class="flex gap-2 mt-2">
       <button class="btn btn-outline" style="flex:1" onclick="editRecipe('${r.id}')">✏️ แก้ไข</button>
       <button class="btn btn-danger" style="flex:1" onclick="deleteRecipe('${r.id}')">🗑️ ลบ</button>
     </div>
@@ -1675,11 +1915,177 @@ function loadSamples() {
       res: { costPer: total, ingPer: ingCost, pkgPer: pkgCost, miscPer: miscCost, sell: s.sell, profit, margin },
       createdAt: Date.now(), updatedAt: Date.now()
     });
+    s.ings.forEach(i => upsertLibraryItem(i.name, i.buyPrice, i.buyQty, i.unit));
     added++;
   });
   save();
   toast(added ? `✅ โหลด ${added} สูตรตัวอย่างแล้ว!` : 'สูตรตัวอย่างมีอยู่แล้ว');
   renderHome();
+}
+
+// ────────────────────────────────────────────────────
+// SHARE / EXPORT IMAGE
+// ────────────────────────────────────────────────────
+function shareCurrentResult() {
+  const ing = calcIngCost(), pkg = calcPkgCost(), misc = calcMiscCost();
+  const total = ing + pkg + misc;
+  shareSummaryImage({
+    name: form.name, cat: form.cat, qty: form.qty, unit: form.unit,
+    ings: form.ings.map(i => ({ name: i.name, per: (i.buyPrice / i.buyQty) * i.usedQty / form.qty })),
+    ingPer: ing, pkgPer: pkg, miscPer: misc, costPer: total,
+    sell: form.sell, profit: form.sell != null ? form.sell - total : null,
+    margin: form.sell != null ? (form.sell - total) / form.sell * 100 : null
+  });
+}
+
+function shareRecipeImage(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r) return;
+  shareSummaryImage({
+    name: r.name, cat: r.cat, qty: r.qty, unit: r.unit,
+    ings: r.ings.map(i => ({ name: i.name, per: (i.buyPrice / i.buyQty) * i.usedQty / r.qty })),
+    ingPer: r.res?.ingPer || 0, pkgPer: r.res?.pkgPer || 0, miscPer: r.res?.miscPer || 0,
+    costPer: r.res?.costPer || 0,
+    sell: r.res?.sell ?? null, profit: r.res?.profit ?? null, margin: r.res?.margin ?? null
+  });
+}
+
+function shareSummaryImage(d) {
+  const W = 720, PAD = 40;
+  const ingList = d.ings.slice(0, 10);
+  const H = 396 + ingList.length * 38 + (d.ings.length > 10 ? 34 : 0) + (d.sell != null ? 150 : 96) + 80;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const F = "'Sarabun', sans-serif";
+  const money = n => fmt(n);
+
+  // bg
+  ctx.fillStyle = '#F4F6F4'; ctx.fillRect(0, 0, W, H);
+  // header
+  ctx.fillStyle = '#4CAF50'; ctx.fillRect(0, 0, W, 120);
+  ctx.fillStyle = '#fff';
+  ctx.font = `800 34px ${F}`;
+  ctx.fillText('🍳 cost.spice', PAD, 52);
+  ctx.font = `400 20px ${F}`;
+  ctx.fillText('สรุปต้นทุนอาหาร · ' + new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }), PAD, 88);
+
+  let y = 172;
+  // menu name
+  ctx.fillStyle = '#1F2937';
+  ctx.font = `800 32px ${F}`;
+  ctx.fillText(`${catIcon(d.cat)} ${d.name}`, PAD, y);
+  ctx.font = `400 20px ${F}`;
+  ctx.fillStyle = '#6B7280';
+  ctx.fillText(`${d.cat || ''} · ผลิต ${d.qty} ${d.unit}/ครั้ง`, PAD, y + 32);
+  y += 72;
+
+  // total cost hero
+  ctx.fillStyle = '#2E7D32';
+  roundRect(ctx, PAD, y, W - PAD * 2, 92, 16); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = `400 19px ${F}`;
+  ctx.fillText(`ต้นทุนต่อ 1 ${d.unit}`, PAD + 24, y + 34);
+  ctx.fillStyle = '#fff';
+  ctx.font = `800 40px ${F}`;
+  ctx.fillText(money(d.costPer), PAD + 24, y + 76);
+  y += 120;
+
+  // breakdown
+  const rows = [
+    ['🥕 วัตถุดิบ', money(d.ingPer)],
+    ['📦 บรรจุภัณฑ์', money(d.pkgPer)],
+    ['⚡ ค่าอื่นๆ', money(d.miscPer)],
+  ];
+  ctx.font = `600 21px ${F}`;
+  rows.forEach(([label, val]) => {
+    ctx.fillStyle = '#1F2937';
+    ctx.textAlign = 'left'; ctx.fillText(label, PAD, y);
+    ctx.textAlign = 'right'; ctx.fillText(val, W - PAD, y);
+    y += 36;
+  });
+  ctx.textAlign = 'left';
+  y += 6;
+
+  // ingredients detail
+  ctx.fillStyle = '#6B7280';
+  ctx.font = `700 19px ${F}`;
+  ctx.fillText(`วัตถุดิบ (${d.ings.length} รายการ)`, PAD, y);
+  y += 32;
+  ctx.font = `400 19px ${F}`;
+  ingList.forEach(i => {
+    ctx.fillStyle = '#1F2937';
+    ctx.textAlign = 'left'; ctx.fillText('· ' + i.name, PAD + 8, y);
+    ctx.textAlign = 'right'; ctx.fillText(money(i.per), W - PAD, y);
+    ctx.textAlign = 'left';
+    y += 38;
+  });
+  if (d.ings.length > 10) {
+    ctx.fillStyle = '#6B7280';
+    ctx.fillText(`…และอีก ${d.ings.length - 10} รายการ`, PAD + 8, y);
+    y += 34;
+  }
+  y += 8;
+
+  // sell / profit or suggested price
+  if (d.sell != null) {
+    const good = (d.profit || 0) >= 0;
+    ctx.fillStyle = good ? '#ECFDF5' : '#FEF2F2';
+    roundRect(ctx, PAD, y, W - PAD * 2, 118, 16); ctx.fill();
+    ctx.font = `600 21px ${F}`;
+    ctx.fillStyle = '#1F2937';
+    ctx.fillText(`💵 ราคาขาย ${money(d.sell)}`, PAD + 24, y + 40);
+    ctx.fillStyle = good ? '#10B981' : '#EF4444';
+    ctx.font = `800 26px ${F}`;
+    ctx.fillText(`กำไร ${money(d.profit)} (${(d.margin || 0).toFixed(1)}%)`, PAD + 24, y + 84);
+    y += 150;
+  } else {
+    ctx.fillStyle = '#FFF7ED';
+    roundRect(ctx, PAD, y, W - PAD * 2, 64, 16); ctx.fill();
+    ctx.fillStyle = '#1F2937';
+    ctx.font = `600 21px ${F}`;
+    ctx.fillText(`💡 ราคาแนะนำ (กำไร 40%): ${money(d.costPer / 0.6)}`, PAD + 24, y + 40);
+    y += 96;
+  }
+
+  // footer
+  ctx.fillStyle = '#9CA3AF';
+  ctx.font = `400 17px ${F}`;
+  ctx.fillText('สร้างด้วย cost.spice — คำนวณต้นทุนร้านอาหาร', PAD, H - 28);
+
+  shareCanvas(cv, `costspice-${d.name.replace(/[\\/:*?"<>|\s]+/g, '-')}.png`);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function shareCanvas(canvas, filename) {
+  canvas.toBlob(async blob => {
+    if (!blob) { toast('⚠️ สร้างรูปไม่สำเร็จ'); return; }
+    const file = new File([blob], filename, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'cost.spice - สรุปต้นทุน' });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return; // user cancelled
+      }
+    }
+    // fallback: download
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast('💾 ดาวน์โหลดรูปสรุปแล้ว');
+  }, 'image/png');
 }
 
 // ────────────────────────────────────────────────────
@@ -1750,6 +2156,11 @@ function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 // INIT
 // ────────────────────────────────────────────────────
 load();
+loadLibrary();
+// Seed library from existing recipes (one-time for users who saved recipes before the library existed)
+if (!library.length && recipes.length) {
+  recipes.forEach(r => r.ings.forEach(i => upsertLibraryItem(i.name, i.buyPrice, i.buyQty, i.unit)));
+}
 loadSettings();
 // Restore currency UI
 document.getElementById('btn-thb').classList.toggle('active', currency === 'THB');
@@ -1759,6 +2170,11 @@ if (currency === 'AUD') {
   document.getElementById('aud-rate-input').value = audRate;
 }
 renderHome();
+
+// PWA: register service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 </script>
 </body>
 </html>
