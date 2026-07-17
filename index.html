@@ -564,7 +564,8 @@
       <input type="number" id="aud-rate-input" class="form-control" style="max-width:100px;padding:7px 10px"
         value="23" min="1" step="0.1" oninput="setAudRate(this.value)">
       <span style="font-size:13px;font-weight:600">THB</span>
-      <span style="font-size:11px;color:var(--text-light);margin-left:auto">ราคาจะแปลงอัตโนมัติ</span>
+      <span style="font-size:11px;color:var(--text-light);margin-left:auto" id="aud-rate-note">ราคาจะแปลงอัตโนมัติ</span>
+      <button class="btn btn-ghost btn-sm" onclick="fetchAudRate(true)" title="ดึงเรทล่าสุด">🔄</button>
     </div>
 
     <!-- Stats -->
@@ -573,6 +574,17 @@
     <!-- Recent -->
     <div class="section-title fade-in">เมนูล่าสุด</div>
     <div id="home-recent" class="fade-in"></div>
+
+    <!-- Backup -->
+    <div class="card fade-in" style="margin-top:16px">
+      <div class="card-title">💾 สำรองข้อมูล</div>
+      <div class="text-xs text-muted mb-2">ข้อมูลทั้งหมดเก็บอยู่ในเครื่องนี้เท่านั้น — สำรองเป็นไฟล์ไว้กันหาย หรือใช้ย้ายข้อมูลไปเครื่องอื่น (Mac ↔ iPhone)</div>
+      <div class="flex gap-2">
+        <button class="btn btn-outline" style="flex:1" onclick="exportBackup()">📤 สำรองเป็นไฟล์</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('import-file').click()">📥 กู้คืนจากไฟล์</button>
+      </div>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
+    </div>
   </div>
 
   <!-- ─── PAGE: CALCULATOR ─── -->
@@ -608,7 +620,8 @@
             <select class="form-control" id="f-unit">
               <option>จาน</option><option>แก้ว</option><option>ชิ้น</option>
               <option>ถุง</option><option>กล่อง</option><option>ขวด</option>
-              <option>อัน</option><option>ลิตร</option>
+              <option>อัน</option><option>ลิตร</option><option>กรัม</option>
+              <option>มล.</option><option>กระปุก</option><option>หม้อ</option>
             </select>
           </div>
         </div>
@@ -1525,6 +1538,7 @@ function renderResults() {
     <div class="card">
       <button class="btn btn-primary btn-full btn-lg" onclick="saveRecipe()">💾 บันทึกสูตรอาหาร</button>
       <button class="btn btn-outline btn-full mt-2" onclick="shareCurrentResult()">📤 แชร์สรุปต้นทุน (รูปภาพ)</button>
+      <button class="btn btn-ghost btn-full mt-2" onclick="sendFormToLibrary()">🫙 เก็บเข้าคลังเป็นวัตถุดิบ (ซอส/สูตรพื้นฐาน)</button>
       <button class="btn btn-ghost btn-full mt-2" onclick="resetAndNew()">➕ คำนวณเมนูใหม่</button>
     </div>
   `;
@@ -1694,6 +1708,7 @@ function showRecipeDetail(id) {
         </div>`).join('')}
     ` : ''}
     <button class="btn btn-primary btn-full mt-4" onclick="shareRecipeImage('${r.id}')">📤 แชร์สรุปต้นทุน (รูปภาพ)</button>
+    <button class="btn btn-outline btn-full mt-2" onclick="sendRecipeToLibrary('${r.id}')">🫙 เก็บเข้าคลังเป็นวัตถุดิบ</button>
     <div class="flex gap-2 mt-2">
       <button class="btn btn-outline" style="flex:1" onclick="editRecipe('${r.id}')">✏️ แก้ไข</button>
       <button class="btn btn-danger" style="flex:1" onclick="deleteRecipe('${r.id}')">🗑️ ลบ</button>
@@ -1924,6 +1939,67 @@ function loadSamples() {
 }
 
 // ────────────────────────────────────────────────────
+// BACKUP / RESTORE
+// ────────────────────────────────────────────────────
+function exportBackup() {
+  const data = {
+    app: 'costspice', version: 1, exportedAt: new Date().toISOString(),
+    recipes, library, settings: { currency, audRate }
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'costspice-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast(`📤 สำรองแล้ว: ${recipes.length} สูตร + ${library.length} วัตถุดิบ`);
+}
+
+function importBackup(input) {
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const d = JSON.parse(reader.result);
+      if (d.app !== 'costspice' || !Array.isArray(d.recipes)) { toast('⚠️ ไฟล์ไม่ใช่ backup ของ cost.spice'); return; }
+      const libCount = (d.library || []).length;
+      if (!confirm(`กู้คืน ${d.recipes.length} สูตร + ${libCount} วัตถุดิบ?\n\nข้อมูลจะรวมเข้ากับของปัจจุบัน (สูตร/วัตถุดิบชื่อซ้ำจะใช้ของไฟล์)`)) return;
+      let added = 0, updated = 0;
+      d.recipes.forEach(nr => {
+        const i = recipes.findIndex(r => r.id === nr.id);
+        if (i !== -1) { recipes[i] = nr; updated++; } else { recipes.push(nr); added++; }
+      });
+      (d.library || []).forEach(l => upsertLibraryItem(l.name, l.buyPrice, l.buyQty, l.unit));
+      save();
+      refreshPrices();
+      toast(`✅ กู้คืนแล้ว: สูตรใหม่ ${added} / อัปเดต ${updated}`);
+    } catch { toast('⚠️ อ่านไฟล์ไม่สำเร็จ'); }
+  };
+  reader.readAsText(file);
+}
+
+// ────────────────────────────────────────────────────
+// SUB-RECIPE → LIBRARY (ซอส/สูตรพื้นฐาน)
+// ────────────────────────────────────────────────────
+function sendFormToLibrary() {
+  if (!form.name) { toast('⚠️ ไม่มีชื่อเมนู'); return; }
+  const batchCost = (calcIngCost() + calcPkgCost() + calcMiscCost()) * form.qty;
+  if (!batchCost) { toast('⚠️ ยังไม่มีต้นทุนให้เก็บ'); return; }
+  upsertLibraryItem(form.name, Math.round(batchCost * 100) / 100, form.qty, form.unit);
+  toast(`🫙 เก็บ "${form.name}" เข้าคลังแล้ว — ${fmt(batchCost)} / ${form.qty} ${form.unit}`);
+}
+
+function sendRecipeToLibrary(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r?.res?.costPer) { toast('⚠️ สูตรนี้ยังไม่มีต้นทุน'); return; }
+  const batchCost = r.res.costPer * r.qty;
+  upsertLibraryItem(r.name, Math.round(batchCost * 100) / 100, r.qty, r.unit);
+  toast(`🫙 เก็บ "${r.name}" เข้าคลังแล้ว — ${fmt(batchCost)} / ${r.qty} ${r.unit}`);
+}
+
+// ────────────────────────────────────────────────────
 // SHARE / EXPORT IMAGE
 // ────────────────────────────────────────────────────
 function shareCurrentResult() {
@@ -2109,7 +2185,12 @@ function setCurrency(cur) {
   if (sellSym) sellSym.textContent = sym;
   if (miscSym) miscSym.textContent = sym;
   saveSettings();
-  // Re-render current visible page
+  refreshPrices();
+  toast(cur === 'AUD' ? `เปลี่ยนเป็น $ AUD (1 AUD = ฿${audRate})` : 'เปลี่ยนเป็น ฿ THB');
+}
+
+// Re-render whatever price displays are currently visible
+function refreshPrices() {
   const activePage = document.querySelector('.page.active')?.id?.replace('page-', '');
   if (activePage === 'home') renderHome();
   if (activePage === 'recipes') renderRecipes();
@@ -2121,17 +2202,19 @@ function setCurrency(cur) {
     if (step === 2) renderPkgList();
     if (step === 3) refreshMiscPreview();
   }
-  toast(cur === 'AUD' ? `เปลี่ยนเป็น $ AUD (1 AUD = ฿${audRate})` : 'เปลี่ยนเป็น ฿ THB');
 }
 
 function setAudRate(val) {
   audRate = parseFloat(val) || 23;
+  autoRate = false; // manual override — stop auto-updating until 🔄 pressed
+  const note = document.getElementById('aud-rate-note');
+  if (note) note.textContent = 'กำหนดเอง · กด 🔄 เพื่อดึงเรทจริง';
   saveSettings();
   setCurrency('AUD');
 }
 
 function saveSettings() {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ currency, audRate }));
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ currency, audRate, autoRate }));
 }
 
 function loadSettings() {
@@ -2139,7 +2222,42 @@ function loadSettings() {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
     if (s.currency) currency = s.currency;
     if (s.audRate)  audRate  = s.audRate;
+    if (s.autoRate === false) autoRate = false;
   } catch {}
+}
+
+// ── Auto exchange rate (frankfurter.app, free & no key) ──
+const FX_KEY = 'costspice_fx';
+let autoRate = true;
+
+async function fetchAudRate(force = false) {
+  if (!force && !autoRate) return;
+  try {
+    if (!force) {
+      const cached = JSON.parse(localStorage.getItem(FX_KEY) || 'null');
+      if (cached && Date.now() - cached.at < 24 * 3600 * 1000) { applyAudRate(cached.rate, cached.at); return; }
+    }
+    const res = await fetch('https://api.frankfurter.dev/v1/latest?from=AUD&to=THB');
+    const j = await res.json();
+    const rate = j?.rates?.THB;
+    if (!rate) throw new Error('no rate');
+    localStorage.setItem(FX_KEY, JSON.stringify({ rate, at: Date.now() }));
+    applyAudRate(rate, Date.now());
+    if (force) toast(`🔄 อัปเดตเรทแล้ว 1 AUD = ฿${audRate}`);
+  } catch {
+    if (force) toast('⚠️ ดึงเรทไม่สำเร็จ (ออฟไลน์?) ใช้ค่าเดิมไปก่อน');
+  }
+}
+
+function applyAudRate(rate, at) {
+  audRate = Math.round(rate * 100) / 100;
+  autoRate = true;
+  const inp = document.getElementById('aud-rate-input');
+  if (inp) inp.value = audRate;
+  const note = document.getElementById('aud-rate-note');
+  if (note) note.textContent = 'เรทจริง ' + new Date(at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+  saveSettings();
+  if (currency === 'AUD') refreshPrices();
 }
 
 function toast(msg) {
@@ -2170,6 +2288,7 @@ if (currency === 'AUD') {
   document.getElementById('aud-rate-input').value = audRate;
 }
 renderHome();
+fetchAudRate(); // อัปเดตเรท AUD วันละครั้ง (เงียบๆ, ออฟไลน์ก็ใช้ค่าเดิม)
 
 // PWA: register service worker
 if ('serviceWorker' in navigator) {
